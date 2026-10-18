@@ -79,6 +79,32 @@ export class RestaurantController {
       "Creates a new restaurant. Supports both JSON and multipart/form-data with image file uploads.",
   })
   @ApiConsumes("multipart/form-data", "application/json")
+  @ApiBody({
+    schema: {
+      type: "object",
+      required: ["branchId", "code", "name"],
+      properties: {
+        branchId: { type: "string", example: "665a1b2c3d4e5f6a7b8c9d0e" },
+        code: { type: "string", example: "RIV-TERRACE" },
+        name: { type: "string", example: "The Riverside Terrace" },
+        cuisine: { type: "string", example: "Modern Thai & Seafood" },
+        description: {
+          type: "string",
+          example: "Al fresco riverside dining with river views",
+        },
+        coverImage: {
+          type: "string",
+          format: "binary",
+          description: "Cover photo file",
+        },
+        images: {
+          type: "array",
+          items: { type: "string", format: "binary" },
+          description: "Gallery photo files",
+        },
+      },
+    },
+  })
   @ApiResponse({
     status: 201,
     description: "Restaurant created successfully",

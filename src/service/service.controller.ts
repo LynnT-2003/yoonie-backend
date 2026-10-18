@@ -77,6 +77,43 @@ export class ServiceController {
       "Creates a new service/tour/spa/transfer. Supports both JSON and multipart/form-data with image file uploads (coverImage + images[]).",
   })
   @ApiConsumes("multipart/form-data", "application/json")
+  @ApiBody({
+    schema: {
+      type: "object",
+      required: [
+        "branchId",
+        "code",
+        "category",
+        "kind",
+        "name",
+        "basePriceThb",
+        "pricingModel",
+      ],
+      properties: {
+        branchId: { type: "string", example: "665a1b2c3d4e5f6a7b8c9d0e" },
+        code: { type: "string", example: "LONGTAIL-CANAL-TOUR" },
+        category: { type: "string", example: "TOURS" },
+        kind: { type: "string", example: "SCHEDULED_TOUR" },
+        name: { type: "string", example: "Private Longtail Boat Canal Tour" },
+        description: {
+          type: "string",
+          example: "2-hour sunset canal exploration of Bangkok's waterways",
+        },
+        basePriceThb: { type: "number", example: 2500 },
+        pricingModel: { type: "string", example: "PER_PAX" },
+        coverImage: {
+          type: "string",
+          format: "binary",
+          description: "Cover photo file",
+        },
+        images: {
+          type: "array",
+          items: { type: "string", format: "binary" },
+          description: "Gallery photo files",
+        },
+      },
+    },
+  })
   @ApiResponse({
     status: 201,
     description: "Service created successfully",

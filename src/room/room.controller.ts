@@ -79,6 +79,65 @@ export class RoomController {
       "Creates a new room. Supports both application/json and multipart/form-data with image file uploads (coverImage + images[]).",
   })
   @ApiConsumes("multipart/form-data", "application/json")
+  @ApiBody({
+    schema: {
+      type: "object",
+      required: [
+        "branchId",
+        "roomNumber",
+        "roomType",
+        "maxOccupancy",
+        "baseRateThb",
+      ],
+      properties: {
+        branchId: {
+          type: "string",
+          example: "665a1b2c3d4e5f6a7b8c9d0e",
+          description: "Branch ID of the property",
+        },
+        roomNumber: {
+          type: "string",
+          example: "101",
+          description: "Unique room number",
+        },
+        floor: {
+          type: "number",
+          example: 1,
+          description: "Floor level of the room",
+        },
+        roomType: {
+          type: "string",
+          example: "STANDARD_KING",
+          description: "Room category spec type",
+        },
+        maxOccupancy: {
+          type: "number",
+          example: 2,
+          description: "Maximum guest occupancy",
+        },
+        baseRateThb: {
+          type: "number",
+          example: 2200,
+          description: "Base rack rate in THB",
+        },
+        amenities: {
+          type: "array",
+          items: { type: "string" },
+          example: ["King Bed", "Rain Shower", "Smart TV"],
+        },
+        coverImage: {
+          type: "string",
+          format: "binary",
+          description: "Room cover photo file",
+        },
+        images: {
+          type: "array",
+          items: { type: "string", format: "binary" },
+          description: "Gallery photo files",
+        },
+      },
+    },
+  })
   @ApiResponse({
     status: 201,
     description: "Room created successfully with image URLs",

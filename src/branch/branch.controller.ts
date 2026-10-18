@@ -77,6 +77,35 @@ export class BranchController {
       "Creates a new branch property. Supports both JSON and multipart/form-data with binary file uploads for logo, heroImage, and gallery images.",
   })
   @ApiConsumes("multipart/form-data", "application/json")
+  @ApiBody({
+    schema: {
+      type: "object",
+      required: ["code", "name"],
+      properties: {
+        code: { type: "string", example: "CNX-MOUNTAIN" },
+        name: { type: "string", example: "Chiang Mai Mountain Sanctuary" },
+        timezone: { type: "string", example: "Asia/Bangkok", default: "Asia/Bangkok" },
+        currency: { type: "string", example: "THB", default: "THB" },
+        contactPhoneE164: { type: "string", example: "+6653112233" },
+        contactEmail: { type: "string", example: "stay@cnx-sanctuary.example" },
+        logo: {
+          type: "string",
+          format: "binary",
+          description: "Branch brand logo file",
+        },
+        heroImage: {
+          type: "string",
+          format: "binary",
+          description: "Main hero banner image file",
+        },
+        images: {
+          type: "array",
+          items: { type: "string", format: "binary" },
+          description: "Gallery photos to upload",
+        },
+      },
+    },
+  })
   @ApiResponse({
     status: 201,
     description: "Branch created",
