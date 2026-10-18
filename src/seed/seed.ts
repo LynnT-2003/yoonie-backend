@@ -135,7 +135,7 @@ async function reserve(
         held: p.mode === "held" ? p.qty : 0,
       },
     },
-    { upsert: true, new: true },
+    { upsert: true, returnDocument: "after" },
   );
   if (doc.booked + doc.held > doc.capacity) {
     throw new Error(`Seed overbooked ${slotKey}`);
