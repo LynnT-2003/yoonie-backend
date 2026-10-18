@@ -1,78 +1,87 @@
 /**
  * Usage:
- *   MONGO_URI="mongodb://localhost:27017/yoonie?replicaSet=rs0" npx ts-node src/hospitality/seed/seed.ts
+ *   MONGO_URI="mongodb://localhost:27017/yoonie?replicaSet=rs0" npm run seed
  *
- * Wipes the hospitality collections, rebuilds indexes, inserts:
- *   - 1 property branch ("BKK-RIVERSIDE", Asia/Bangkok)
- *   - 7 staff users & 10 master CDP guest profiles with VIP scoring
- *   - 40 physical rooms (24 Standard King, 12 Deluxe Balcony, 4 Pool Villa)
- *   - 2 restaurants (Riverside Cafe, Sunset Deck Bar)
- *   - 4 services (Airport Transfer, Sunset Cruise, Thai Herbal Spa, Ayutthaya Day Tour)
- *   - 10 composite orders with stays, dining, transfers, and experiences
- *   - Today's 05:30 operational dispatch run-sheet (housekeeping, tour consolidation, bilingual pickup cards)
+ * Populates data across all individual domain modules:
+ *   - BranchModule: BKK-RIVERSIDE
+ *   - UserModule: 7 staff + 10 master CDP guest profiles
+ *   - RoomModule: 40 physical units
+ *   - RestaurantModule: Riverside Cafe + Sunset Deck Bar
+ *   - ServiceModule: 4 services (Airport Transfer, Sunset Cruise, Spa, Ayutthaya Tour)
+ *   - InventoryModule: Slots & soft holds
+ *   - OrderModule: 10 composite orders
+ *   - DispatchModule: Today's 05:30 operational run-sheet
  */
 import "reflect-metadata";
+import { config as loadEnv } from "dotenv";
+loadEnv();
 import mongoose, { HydratedDocument, Types } from "mongoose";
+import { UserRole } from "../common/enums/user-role.enum";
+import { RoomTypeCode } from "../common/enums/room-type.enum";
+import { CleaningStatus } from "../common/enums/cleaning-status.enum";
 import {
-  CleaningStatus,
-  DispatchType,
-  LineKind,
-  LineStatus,
-  MessageChannel,
-  OrderStatus,
-  PricingModel,
-  RoomTypeCode,
   ServiceCategory,
   ServiceKind,
-  Severity,
+  PricingModel,
+} from "../common/enums/service.enum";
+import { OrderStatus, LineStatus, LineKind } from "../common/enums/order.enum";
+import {
   SlotKind,
   SlotStatus,
   HoldStatus,
-  HospitalityUserRole,
-} from "../common/hospitality.enums";
+} from "../common/enums/inventory.enum";
 import {
-  addDays,
-  eachNight,
-  hhmm,
+  DispatchType,
+  Severity,
+  MessageChannel,
+} from "../common/enums/dispatch.enum";
+import {
   toBusinessDate,
+  addDays,
   zonedAt,
-} from "../common/hospitality.time";
+  hhmm,
+  eachNight,
+} from "../common/helpers/time.helper";
+
+// Domain Entities
+import { Branch, BranchSchema } from "../branch/entity/branch.entity";
+import { User, UserSchema } from "../user/entity/user.entity";
+import { Room, RoomSchema } from "../room/entity/room.entity";
 import {
-  buildPickupCard,
-  evaluateConsolidation,
-  housekeepingPriority,
-  pickupPriority,
-} from "../dispatch/dispatch-rules";
-import {
-  Branch,
-  BranchSchema,
-  HospitalityUser,
-  HospitalityUserSchema,
-  InventoryHold,
-  InventoryHoldSchema,
-  InventorySlot,
-  InventorySlotSchema,
-  OperationalDispatch,
-  OperationalDispatchSchema,
-  Order,
-  OrderLine,
-  OrderSchema,
   Restaurant,
   RestaurantSchema,
-  Room,
-  RoomSchema,
-  Service,
-  ServiceSchema,
+} from "../restaurant/entity/restaurant.entity";
+import { Service, ServiceSchema } from "../service/entity/service.entity";
+import {
+  InventorySlot,
+  InventorySlotSchema,
   buildSlotKey,
-} from "../schemas";
+} from "../inventory/entity/inventory-slot.entity";
+import {
+  InventoryHold,
+  InventoryHoldSchema,
+} from "../inventory/entity/inventory-hold.entity";
+import { Order, OrderLine, OrderSchema } from "../order/entity/order.entity";
+import {
+  OperationalDispatch,
+  OperationalDispatchSchema,
+} from "../dispatch/entity/operational-dispatch.entity";
+import {
+  housekeepingPriority,
+  pickupPriority,
+  evaluateConsolidation,
+  buildPickupCard,
+} from "../dispatch/rules/dispatch-rules";
 
 const URI =
+  process.env.MONGODB_URI ??
   process.env.MONGO_URI ??
   process.env.DATABASE_URL ??
   "mongodb://localhost:27017/yoonie";
+
 const M = {
   branch: mongoose.model(Branch.name, BranchSchema),
-  user: mongoose.model(HospitalityUser.name, HospitalityUserSchema),
+  user: mongoose.model(User.name, UserSchema),
   room: mongoose.model(Room.name, RoomSchema),
   restaurant: mongoose.model(Restaurant.name, RestaurantSchema),
   service: mongoose.model(Service.name, ServiceSchema),
@@ -136,16 +145,16 @@ async function reserve(
 
 /* ------------------------------------------------------------------ main */
 async function main() {
-  console.log(`Connecting to MongoDB at: ${URI}`);
+  console.log(`Connecting to MongoDB: ${URI}`);
   await mongoose.connect(URI);
-  console.log("Synchronizing indexes and wiping hospitality collections...");
+  console.log("Synchronizing indexes & wiping domain collections...");
 
   for (const m of Object.values(M) as unknown as mongoose.Model<object>[]) {
     await m.deleteMany({});
     await m.syncIndexes();
   }
 
-  /* ---- branch */
+  /* ---- Branch */
   const branch = await M.branch.create({
     code: "BKK-RIVERSIDE",
     name: "BKK Riverside Boutique Hotel",
@@ -165,56 +174,30 @@ async function main() {
   });
   BRANCH = branch._id;
 
-  /* ---- staff */
-  const staffDefs: Array<
-    [string, HospitalityUserRole, string, string, string?]
-  > = [
-    ["Kanya Srisuk", HospitalityUserRole.ADMIN, "kanya", "+66810000001"],
-    ["Anan Boonmee", HospitalityUserRole.BRANCH_MGR, "anan", "+66810000002"],
-    ["Mali Chaiyo", HospitalityUserRole.DISPATCHER, "mali", "+66810000003"],
-    [
-      "Noi Prasert",
-      HospitalityUserRole.STAFF,
-      "noi",
-      "+66810000004",
-      "HOUSEKEEPER",
-    ],
-    [
-      "Dao Wongsa",
-      HospitalityUserRole.STAFF,
-      "dao",
-      "+66810000005",
-      "HOUSEKEEPER",
-    ],
-    [
-      "Somchai Rattana",
-      HospitalityUserRole.STAFF,
-      "somchai",
-      "+66810000006",
-      "DRIVER",
-    ],
-    [
-      "Prasit Kaew",
-      HospitalityUserRole.STAFF,
-      "prasit",
-      "+66810000007",
-      "DRIVER",
-    ],
+  /* ---- Staff Users */
+  const staffDefs: Array<[string, UserRole, string, string, string?]> = [
+    ["Kanya Srisuk", UserRole.ADMIN, "kanya", "+66810000001"],
+    ["Anan Boonmee", UserRole.BRANCH_MGR, "anan", "+66810000002"],
+    ["Mali Chaiyo", UserRole.DISPATCHER, "mali", "+66810000003"],
+    ["Noi Prasert", UserRole.STAFF, "noi", "+66810000004", "HOUSEKEEPER"],
+    ["Dao Wongsa", UserRole.STAFF, "dao", "+66810000005", "HOUSEKEEPER"],
+    ["Somchai Rattana", UserRole.STAFF, "somchai", "+66810000006", "DRIVER"],
+    ["Prasit Kaew", UserRole.STAFF, "prasit", "+66810000007", "DRIVER"],
   ];
-  const staff: Record<string, HydratedDocument<HospitalityUser>> = {};
+  const staff: Record<string, HydratedDocument<User>> = {};
   for (const [fullName, role, handle, phoneE164, jobTitle] of staffDefs) {
     staff[handle] = (await M.user.create({
-      fullName,
+      displayName: fullName,
       role,
       email: `${handle}@riverside-bkk.example`,
       phoneE164,
       jobTitle,
       preferredLanguage: "th",
-      branchIds: role === HospitalityUserRole.ADMIN ? [] : [BRANCH],
-    })) as HydratedDocument<HospitalityUser>;
+      branchIds: role === UserRole.ADMIN ? [] : [BRANCH],
+    })) as HydratedDocument<User>;
   }
 
-  /* ---- guests (master CDP) */
+  /* ---- Guests (Master CDP) */
   const guestDefs = [
     {
       fullName: "Eleanor Whitfield",
@@ -299,12 +282,12 @@ async function main() {
       prior: [15000, 1],
     },
   ];
-  const guests: HydratedDocument<HospitalityUser>[] = [];
+  const guests: HydratedDocument<User>[] = [];
   for (const g of guestDefs) {
     guests.push(
       (await M.user.create({
-        role: HospitalityUserRole.GUEST,
-        fullName: g.fullName,
+        role: UserRole.GUEST,
+        displayName: g.fullName,
         email: g.email,
         phoneE164: g.phoneE164,
         lineUserId: g.lineUserId,
@@ -316,11 +299,11 @@ async function main() {
           stayCount: g.prior[1],
           orderCount: g.prior[1],
         },
-      })) as HydratedDocument<HospitalityUser>,
+      })) as HydratedDocument<User>,
     );
   }
 
-  /* ---- rooms: 24 + 12 + 4 = 40 keys */
+  /* ---- Rooms (40 physical keys) */
   const ROOM_TYPES = [
     {
       code: RoomTypeCode.STANDARD_KING,
@@ -379,7 +362,7 @@ async function main() {
     ROOM_TYPES.map((t) => [t.code, t.count]),
   ) as Record<RoomTypeCode, number>;
 
-  /* ---- restaurants */
+  /* ---- Restaurants */
   const riverside = await M.restaurant.create({
     branchId: BRANCH,
     code: "RIVERSIDE-CAFE",
@@ -434,7 +417,7 @@ async function main() {
     ],
   });
 
-  /* ---- services */
+  /* ---- Services */
   const svcTransfer = await M.service.create({
     branchId: BRANCH,
     code: "SVC-BKK-TRANSFER",
@@ -521,7 +504,7 @@ async function main() {
   const vehicles = svcTransfer.transfer!.vehicles;
   let vanCursor = 0;
 
-  /* ---- line builders */
+  /* ---- Line Builders */
   type Mode = "booked" | "held";
   const live = (status: LineStatus) => status !== LineStatus.CANCELLED;
 
@@ -770,7 +753,7 @@ async function main() {
     } as Partial<OrderLine>;
   }
 
-  /* ---- 10 composite orders */
+  /* ---- 10 Composite Orders */
   const C = LineStatus.CONFIRMED;
   interface OrderSpec {
     guest: number;
@@ -1150,11 +1133,11 @@ async function main() {
       items,
       holdId,
       guestSnapshot: {
-        fullName: g.fullName,
-        email: g.email,
-        phoneE164: g.phoneE164,
-        lineUserId: g.lineUserId,
-        preferredLanguage: g.preferredLanguage,
+        fullName: g.displayName,
+        email: g.email ?? undefined,
+        phoneE164: g.phoneE164 ?? undefined,
+        lineUserId: g.lineUserId ?? undefined,
+        preferredLanguage: g.preferredLanguage ?? "en",
       },
       attribution: s.attr,
       payment: {
@@ -1173,7 +1156,7 @@ async function main() {
     orders.push(order);
   }
 
-  /* ---- room states for today's turnaround + guest lifetime stats */
+  /* ---- Room housekeeping states for today */
   for (const n of ["105", "305", "PV2"]) {
     rooms[n].cleaningStatus = CleaningStatus.DIRTY;
     await rooms[n].save();
@@ -1200,7 +1183,7 @@ async function main() {
     await g.save();
   }
 
-  /* ---- dispatches for DAY0, same rules the 05:30 job runs */
+  /* ---- Dispatches for DAY0 (same rules the 05:30 job runs) */
   const dispatches: Array<Record<string, unknown>> = [];
   const driverById = new Map(
     Object.values(staff).map((u) => [String(u._id), u]),
@@ -1239,7 +1222,7 @@ async function main() {
           roomId: room._id,
           roomNumber: room.roomNumber,
           orderId: o._id,
-          guestName: g.fullName,
+          guestName: g.displayName,
           etaAt: eta,
           isVip: g.vipScore >= 50,
           etaSource: inbound ? "TRANSFER_FLIGHT" : "CHECKIN_TIME",
@@ -1254,11 +1237,11 @@ async function main() {
       const driver = driverById.get(String(inbound.service.driverUserId))!;
       const card = buildPickupCard({
         hotelName: branch.name,
-        guestName: g.fullName,
+        guestName: g.displayName,
         flightNumber: f.number,
         etaAt: f.estimatedAt ?? f.scheduledAt,
         meetingDoor: f.meetingDoor ?? 4,
-        driverName: driver.fullName,
+        driverName: driver.displayName,
         driverPhone: driver.phoneE164 ?? "",
         vehiclePlate: inbound.service.vehiclePlate ?? "",
       });
@@ -1267,13 +1250,13 @@ async function main() {
         dedupeKey: `pickup:${String(o._id)}:${inbound.lineId}`,
         priorityScore: pickupPriority(f.estimatedAt ?? f.scheduledAt),
         severity: Severity.INFO,
-        title: `Pickup ${f.number} ${hhmm(f.estimatedAt ?? f.scheduledAt)} (${g.fullName})`,
+        title: `Pickup ${f.number} ${hhmm(f.estimatedAt ?? f.scheduledAt)} (${g.displayName})`,
         dueAt: inbound.startsAt,
         assigneeUserId: driver._id,
         pickup: {
           orderId: o._id,
           lineId: inbound.lineId,
-          guestName: g.fullName,
+          guestName: g.displayName,
           flightNumber: f.number,
           etaAt: f.estimatedAt ?? f.scheduledAt,
           meetingDoor: f.meetingDoor,
@@ -1335,10 +1318,10 @@ async function main() {
     await M.dispatch.create({ branchId: BRANCH, serviceDate: DAY0, ...x });
   }
 
-  /* ---- summary & verify read paths */
+  /* ---- Verification Output */
   const counts = {
     branches: await M.branch.countDocuments(),
-    hospitalityUsers: await M.user.countDocuments(),
+    users: await M.user.countDocuments(),
     rooms: await M.room.countDocuments(),
     restaurants: await M.restaurant.countDocuments(),
     services: await M.service.countDocuments(),
@@ -1346,7 +1329,7 @@ async function main() {
     orders: await M.order.countDocuments(),
     dispatches: await M.dispatch.countDocuments(),
   };
-  console.log("\n--- Seed Verification Table ---");
+  console.log("\n--- Domain Seed Count Table ---");
   console.table(counts);
 
   const board = await M.dispatch
@@ -1354,7 +1337,7 @@ async function main() {
     .sort({ priorityScore: -1 })
     .select("type priorityScore severity title")
     .lean();
-  console.log(`\n--- Morning Run-Sheet Board for Business Date: ${DAY0} ---`);
+  console.log(`\n--- Operational Dispatch Board (${DAY0}) ---`);
   console.table(
     board.map((b) => ({
       type: b.type,
@@ -1370,7 +1353,10 @@ async function main() {
     revenueThb: number;
   }>([
     {
-      $match: { branchId: BRANCH, status: { $in: ["CONFIRMED", "COMPLETED"] } },
+      $match: {
+        branchId: BRANCH,
+        status: { $in: ["CONFIRMED", "COMPLETED"] },
+      },
     },
     {
       $group: {
@@ -1381,7 +1367,7 @@ async function main() {
     },
     { $sort: { revenueThb: -1 } },
   ]);
-  console.log("\n--- Marketing Attribution & Direct Booking Revenue ---");
+  console.log("\n--- Direct-Booking Revenue by Source ---");
   console.table(
     roll.map((r) => ({
       source: r._id,

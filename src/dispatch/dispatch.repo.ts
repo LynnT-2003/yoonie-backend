@@ -1,57 +1,61 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { Injectable } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model, Types } from "mongoose";
 import {
   OperationalDispatch,
   OperationalDispatchDocument,
-} from "../schemas/dispatch.schema";
-import { DispatchStatus, DispatchType } from "../common/hospitality.enums";
+} from "./entity/operational-dispatch.entity";
+import { DispatchStatus, DispatchType } from "../common/enums/dispatch.enum";
 
 @Injectable()
-export class DispatchService {
+export class DispatchRepo {
   constructor(
     @InjectModel(OperationalDispatch.name)
     private readonly dispatchModel: Model<OperationalDispatchDocument>,
   ) {}
 
   async findByServiceDate(
-    branchId: string | Types.ObjectId,
+    branchId: Types.ObjectId,
     serviceDate: string,
     status?: DispatchStatus,
     type?: DispatchType,
   ): Promise<OperationalDispatchDocument[]> {
-    const filter: Record<string, unknown> = {
-      branchId: new Types.ObjectId(branchId),
-      serviceDate,
-    };
+    const filter: Record<string, unknown> = { branchId, serviceDate };
     if (status) filter.status = status;
     if (type) filter.type = type;
 
     return this.dispatchModel.find(filter).sort({ priorityScore: -1 }).exec();
   }
 
-  async updateStatus(
-    dispatchId: string | Types.ObjectId,
-    status: DispatchStatus,
-    assigneeUserId?: Types.ObjectId,
-  ): Promise<OperationalDispatchDocument> {
-    const task = await this.dispatchModel.findById(dispatchId).exec();
-    if (!task) {
-      throw new NotFoundException(
-        `Dispatch task ${String(dispatchId)} not found`,
-      );
-    }
-
-    task.status = status;
-    if (assigneeUserId) task.assigneeUserId = assigneeUserId;
-    if (status === DispatchStatus.DONE) {
-      task.completedAt = new Date();
-    }
-
-    return task.save();
+  async findById(
+    id: string | Types.ObjectId,
+  ): Promise<OperationalDispatchDocument | null> {
+    return this.dispatchModel.findById(id).exec();
   }
 
-  async upsertDispatch(
+  async updateStatus(
+    id: Types.ObjectId,
+    status: DispatchStatus,
+    assigneeUserId?: Types.ObjectId,
+  ): Promise<OperationalDispatchDocument | null> {
+    return this.dispatchModel
+      .findByIdAndUpdate(
+        id,
+        {
+          $set: {
+            status,
+            ...(assigneeUserId ? { assigneeUserId } : {}),
+            ...(status === DispatchStatus.DONE
+              ? { completedAt: new Date() }
+              : {}),
+          },
+        },
+        { new: true },
+      )
+      .exec();
+  }
+
+  async upsertTask(
     branchId: Types.ObjectId,
     serviceDate: string,
     type: DispatchType,

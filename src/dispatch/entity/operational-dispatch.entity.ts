@@ -5,21 +5,21 @@ import {
   DispatchType,
   MessageChannel,
   Severity,
-} from "../common/hospitality.enums";
-import { BUSINESS_DATE, ObjectIdType } from "../common/hospitality.types";
+} from "../../common/enums/dispatch.enum";
+import { BUSINESS_DATE } from "../../common/helpers/regex.helper";
 
 @Schema({ _id: false })
 export class HousekeepingPayload {
-  @Prop({ type: ObjectIdType, ref: "Room", required: true })
+  @Prop({ type: Types.ObjectId, ref: "Room", required: true })
   roomId!: Types.ObjectId;
 
   @Prop({ required: true })
   roomNumber!: string;
 
-  @Prop({ type: ObjectIdType, ref: "Order" })
+  @Prop({ type: Types.ObjectId, ref: "Order" })
   orderId?: Types.ObjectId;
 
-  @Prop()
+  @Prop({ type: String })
   guestName?: string;
 
   @Prop({ type: Date, required: true })
@@ -32,7 +32,7 @@ export class HousekeepingPayload {
   })
   etaSource!: string;
 
-  @Prop()
+  @Prop({ type: String })
   flightNumber?: string;
 
   @Prop({ default: false })
@@ -49,7 +49,7 @@ export class ConsolidationPayload {
   @Prop({ required: true })
   slotKey!: string;
 
-  @Prop({ type: ObjectIdType, ref: "Service", required: true })
+  @Prop({ type: Types.ObjectId, ref: "Service", required: true })
   serviceId!: Types.ObjectId;
 
   @Prop({ required: true })
@@ -79,7 +79,11 @@ export class ConsolidationPayload {
   @Prop({ required: true })
   projectedLossThb!: number;
 
-  @Prop({ type: String, enum: ["MERGE_OR_CANCEL", "WATCH"], required: true })
+  @Prop({
+    type: String,
+    enum: ["MERGE_OR_CANCEL", "WATCH"],
+    required: true,
+  })
   recommendation!: string;
 }
 export const ConsolidationPayloadSchema =
@@ -97,7 +101,7 @@ export const PickupCardSchema = SchemaFactory.createForClass(PickupCard);
 
 @Schema({ _id: false })
 export class PickupPayload {
-  @Prop({ type: ObjectIdType, ref: "Order", required: true })
+  @Prop({ type: Types.ObjectId, ref: "Order", required: true })
   orderId!: Types.ObjectId;
 
   @Prop({ required: true })
@@ -112,16 +116,20 @@ export class PickupPayload {
   @Prop({ type: Date, required: true })
   etaAt!: Date;
 
-  @Prop()
+  @Prop({ type: Number })
   meetingDoor?: number;
 
-  @Prop()
+  @Prop({ type: String })
   vehiclePlate?: string;
 
-  @Prop({ type: ObjectIdType, ref: "HospitalityUser" })
+  @Prop({ type: Types.ObjectId, ref: "User" })
   driverUserId?: Types.ObjectId;
 
-  @Prop({ type: String, enum: Object.values(MessageChannel), required: true })
+  @Prop({
+    type: String,
+    enum: Object.values(MessageChannel),
+    required: true,
+  })
   channel!: MessageChannel;
 
   @Prop({
@@ -136,22 +144,67 @@ export class PickupPayload {
 }
 export const PickupPayloadSchema = SchemaFactory.createForClass(PickupPayload);
 
+/**
+ * OperationalDispatch Document Schema Example:
+ * -------------------------------------------------------------
+ * {
+ *   "_id": ObjectId("665a1b2c3d4e5f6a7b8c9d7a"),
+ *   "branchId": ObjectId("665a1b2c3d4e5f6a7b8c9d0e"),
+ *   "serviceDate": "2026-10-20",
+ *   "type": "AIRPORT_PICKUP",
+ *   "priorityScore": 120,
+ *   "severity": "WARN",
+ *   "status": "OPEN",
+ *   "title": "Airport pickup TG917 - Sarah Jenkins (Door 3)",
+ *   "dedupeKey": "PICKUP:665a1b2c3d4e5f6a7b8c9d6f:line1",
+ *   "assigneeUserId": ObjectId("665a1b2c3d4e5f6a7b8c9d0a"),
+ *   "dueAt": ISODate("2026-10-20T14:30:00.000Z"),
+ *   "generatedAt": ISODate("2026-10-20T05:30:00.000Z"),
+ *   "pickup": {
+ *     "orderId": ObjectId("665a1b2c3d4e5f6a7b8c9d6f"),
+ *     "lineId": "line1",
+ *     "guestName": "Sarah Jenkins",
+ *     "flightNumber": "TG917",
+ *     "etaAt": ISODate("2026-10-20T14:30:00.000Z"),
+ *     "meetingDoor": 3,
+ *     "vehiclePlate": "1กข-9999",
+ *     "driverUserId": ObjectId("665a1b2c3d4e5f6a7b8c9d0a"),
+ *     "channel": "LINE",
+ *     "deliveryStatus": "SENT",
+ *     "card": {
+ *       "en": "Welcome to Bangkok, Ms. Sarah Jenkins",
+ *       "th": "ยินดีต้อนรับสู่กรุงเทพฯ คุณซาร่าห์ เจนกินส์"
+ *     }
+ *   },
+ *   "createdAt": ISODate("2026-10-20T05:30:00.000Z"),
+ *   "updatedAt": ISODate("2026-10-20T05:30:00.000Z")
+ * }
+ * -------------------------------------------------------------
+ */
 @Schema({ timestamps: true, collection: "operational_dispatches" })
 export class OperationalDispatch {
-  @Prop({ type: ObjectIdType, ref: "Branch", required: true })
+  @Prop({ type: Types.ObjectId, ref: "Branch", required: true })
   branchId!: Types.ObjectId;
 
   @Prop({ required: true, match: BUSINESS_DATE })
   serviceDate!: string;
 
-  @Prop({ type: String, enum: Object.values(DispatchType), required: true })
+  @Prop({
+    type: String,
+    enum: Object.values(DispatchType),
+    required: true,
+  })
   type!: DispatchType;
 
   /** higher = do it first. see dispatch-rules.ts for the formulas */
   @Prop({ required: true, min: 0 })
   priorityScore!: number;
 
-  @Prop({ type: String, enum: Object.values(Severity), default: Severity.INFO })
+  @Prop({
+    type: String,
+    enum: Object.values(Severity),
+    default: Severity.INFO,
+  })
   severity!: Severity;
 
   @Prop({
@@ -168,7 +221,7 @@ export class OperationalDispatch {
   @Prop({ required: true })
   dedupeKey!: string;
 
-  @Prop({ type: ObjectIdType, ref: "HospitalityUser" })
+  @Prop({ type: Types.ObjectId, ref: "User" })
   assigneeUserId?: Types.ObjectId;
 
   @Prop({ type: Date })
@@ -199,21 +252,21 @@ OperationalDispatchSchema.index(
   { branchId: 1, serviceDate: 1, type: 1, dedupeKey: 1 },
   { unique: true },
 );
-// the morning board: equality on branch/day, sort on score. type filter is a cheap in-index filter
+// the morning board: equality on branch/day, sort on score
 OperationalDispatchSchema.index({
   branchId: 1,
   serviceDate: 1,
   type: 1,
   priorityScore: -1,
 });
-// "what's still open today, worst first". status is equality so the sort stays index-backed
+// open tasks today
 OperationalDispatchSchema.index({
   branchId: 1,
   serviceDate: 1,
   status: 1,
   priorityScore: -1,
 });
-// my tasks (driver / housekeeper app)
+// staff task lists
 OperationalDispatchSchema.index(
   { assigneeUserId: 1, serviceDate: 1, status: 1 },
   { sparse: true },

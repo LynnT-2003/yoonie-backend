@@ -11,7 +11,13 @@ import { HttpExceptionFilter } from "./common/filters/http-exception.filter";
 import { TransformInterceptor } from "./common/interceptors/transform.interceptor";
 import { loadEnvConfigs } from "./common/config/env.config";
 import { MongoModule } from "./mongo-client/mongo.module";
-import { HospitalityModule } from "./hospitality/hospitality.module";
+import { BranchModule } from "./branch/branch.module";
+import { RoomModule } from "./room/room.module";
+import { RestaurantModule } from "./restaurant/restaurant.module";
+import { ServiceModule } from "./service/service.module";
+import { InventoryModule } from "./inventory/inventory.module";
+import { OrderModule } from "./order/order.module";
+import { DispatchModule } from "./dispatch/dispatch.module";
 
 @Module({
   imports: [
@@ -44,7 +50,13 @@ import { HospitalityModule } from "./hospitality/hospitality.module";
     AuthModule,
     UserModule,
     MongoModule,
-    HospitalityModule,
+    BranchModule,
+    RoomModule,
+    RestaurantModule,
+    ServiceModule,
+    InventoryModule,
+    OrderModule,
+    DispatchModule,
   ],
   providers: [
     // ─── Global Guards ─────────────────────────────────────────────────────────

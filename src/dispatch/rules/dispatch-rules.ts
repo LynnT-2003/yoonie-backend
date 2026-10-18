@@ -1,9 +1,4 @@
-import { hhmm, minutesOfDay } from "../common/hospitality.time";
-
-/**
- * Pure functions, no I/O. The 05:30 generator loads data, calls these, upserts dispatches by dedupeKey.
- * Pure = unit testable and identical in the seed script and in production.
- */
+import { hhmm, minutesOfDay } from "../../common/helpers/time.helper";
 
 /** earliest arrival gets the highest score. VIP adds a bump so they win ties inside a 50 min window */
 export const housekeepingPriority = (etaAt: Date, isVip: boolean): number =>

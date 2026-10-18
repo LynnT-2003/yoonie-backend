@@ -14,15 +14,15 @@ import {
   ApiResponse,
   ApiTags,
 } from "@nestjs/swagger";
-import { Types } from "mongoose";
-import { Public } from "../../common/decorators/public.decorator";
-import { DispatchService } from "../services/dispatch.service";
-import { UpdateDispatchStatusDto } from "../dto/update-dispatch-status.dto";
-import { DispatchStatus, DispatchType } from "../common/hospitality.enums";
+import { Public } from "../common/decorators/public.decorator";
+import { DispatchService } from "./dispatch.service";
+import { UpdateDispatchStatusDto } from "./dto/requests/update-dispatch-status.dto";
+import { QueryDispatchDto } from "./dto/requests/query-dispatch.dto";
+import { DispatchTaskResponseDto } from "./dto/responses/dispatch-task-response.dto";
 
-@ApiTags("Hospitality - Operations & Dispatch")
+@ApiTags("Operations & Dispatch")
 @ApiBearerAuth("JWT-auth")
-@Controller("hospitality/dispatch")
+@Controller("dispatch")
 export class DispatchController {
   constructor(private readonly dispatchService: DispatchService) {}
 
@@ -32,18 +32,14 @@ export class DispatchController {
   @ApiResponse({
     status: 200,
     description: "List of prioritized dispatch tasks",
+    type: [DispatchTaskResponseDto],
   })
-  async getDispatches(
-    @Query("branchId") branchId: string,
-    @Query("serviceDate") serviceDate: string,
-    @Query("status") status?: DispatchStatus,
-    @Query("type") type?: DispatchType,
-  ) {
+  async getDispatches(@Query() query: QueryDispatchDto) {
     return this.dispatchService.findByServiceDate(
-      branchId,
-      serviceDate,
-      status,
-      type,
+      query.branchId,
+      query.serviceDate,
+      query.status,
+      query.type,
     );
   }
 
@@ -53,15 +49,19 @@ export class DispatchController {
   @ApiOperation({
     summary: "Update dispatch task status (acknowledge, in progress, done)",
   })
-  @ApiResponse({ status: 200, description: "Dispatch task updated" })
+  @ApiResponse({
+    status: 200,
+    description: "Dispatch task updated",
+    type: DispatchTaskResponseDto,
+  })
   async updateStatus(
     @Param("id") id: string,
     @Body() dto: UpdateDispatchStatusDto,
   ) {
     return this.dispatchService.updateStatus(
-      new Types.ObjectId(id),
+      id,
       dto.status,
-      dto.assigneeUserId ? new Types.ObjectId(dto.assigneeUserId) : undefined,
+      dto.assigneeUserId,
     );
   }
 }
