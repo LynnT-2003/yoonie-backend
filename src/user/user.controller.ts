@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -7,13 +8,18 @@ import {
   HttpStatus,
   Param,
   Patch,
+  Post,
+  UploadedFile,
+  UseInterceptors,
 } from "@nestjs/common";
+import { FileInterceptor } from "@nestjs/platform-express";
 import {
   ApiTags,
   ApiBearerAuth,
   ApiOperation,
   ApiResponse,
   ApiBody,
+  ApiConsumes,
 } from "@nestjs/swagger";
 
 import { UserService } from "./user.service";
@@ -64,7 +70,11 @@ export class UserController {
 
   @Patch("me")
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: "Update current user profile" })
+  @UseInterceptors(FileInterceptor("avatar"))
+  @ApiOperation({
+    summary: "Update current user profile (with optional avatar file in 1 shot)",
+  })
+  @ApiConsumes("multipart/form-data", "application/json")
   @ApiBody({ type: UpdateUserDto })
   @ApiResponse({
     status: 200,
@@ -72,11 +82,52 @@ export class UserController {
     schema: { example: { ...USER_EXAMPLE, displayName: "Jane Doe" } },
   })
   @ApiResponse({ status: 401, description: "Unauthorized" })
-  updateMe(
+  async updateMe(
     @CurrentUser() user: ICurrentUser,
     @Body() dto: UpdateUserDto,
+    @UploadedFile() avatarFile?: Express.Multer.File,
   ): Promise<IUserPublic> {
+    if (avatarFile) {
+      await this.userService.uploadAvatar(user.userId, avatarFile);
+    }
     return this.userService.updateUser(user.userId, dto);
+  }
+
+  @Post("me/avatar")
+  @HttpCode(HttpStatus.OK)
+  @UseInterceptors(FileInterceptor("file"))
+  @ApiOperation({
+    summary: "Upload & set current user profile avatar in 1 call",
+    description:
+      "Uploads an image file to Cloudflare R2 and immediately updates user.avatar in MongoDB.",
+  })
+  @ApiConsumes("multipart/form-data")
+  @ApiBody({
+    schema: {
+      type: "object",
+      required: ["file"],
+      properties: {
+        file: {
+          type: "string",
+          format: "binary",
+          description: "User avatar image file",
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: "Avatar updated",
+    schema: { example: USER_EXAMPLE },
+  })
+  async uploadAvatar(
+    @CurrentUser() user: ICurrentUser,
+    @UploadedFile() file: Express.Multer.File,
+  ): Promise<IUserPublic> {
+    if (!file) {
+      throw new BadRequestException("Avatar image file must be provided");
+    }
+    return this.userService.uploadAvatar(user.userId, file);
   }
 
   @Delete("me")

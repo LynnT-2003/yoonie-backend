@@ -1,5 +1,6 @@
 import { ApiProperty } from "@nestjs/swagger";
-import { IsNotEmpty, IsOptional, IsString, Matches } from "class-validator";
+import { Transform } from "class-transformer";
+import { IsArray, IsNotEmpty, IsOptional, IsString, Matches } from "class-validator";
 
 export class CreateBranchDto {
   @ApiProperty({
@@ -46,4 +47,47 @@ export class CreateBranchDto {
   @IsString()
   @IsOptional()
   contactEmail?: string;
+
+  @ApiProperty({
+    example: "https://images.yoonie.si/branches/riverside-logo.webp",
+    required: false,
+    description: "Branch logo URL (if not uploading binary file)",
+  })
+  @IsString()
+  @IsOptional()
+  logoUrl?: string;
+
+  @ApiProperty({
+    example: "https://images.yoonie.si/branches/riverside-hero.webp",
+    required: false,
+    description: "Branch hero banner image URL (if not uploading binary file)",
+  })
+  @IsString()
+  @IsOptional()
+  heroImageUrl?: string;
+
+  @ApiProperty({
+    example: [
+      "https://images.yoonie.si/branches/riverside-1.webp",
+      "https://images.yoonie.si/branches/riverside-2.webp",
+    ],
+    required: false,
+    type: [String],
+    description: "Gallery image URLs (if not uploading binary files)",
+  })
+  @Transform(({ value }) => {
+    if (typeof value === "string") {
+      try {
+        const parsed = JSON.parse(value);
+        return Array.isArray(parsed) ? parsed : [value];
+      } catch {
+        return value.split(",").map((s) => s.trim());
+      }
+    }
+    return value;
+  })
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  images?: string[] = [];
 }

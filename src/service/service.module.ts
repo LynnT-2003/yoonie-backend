@@ -4,10 +4,12 @@ import { Service, ServiceSchema } from "./entity/service.entity";
 import { ServiceRepo } from "./service.repo";
 import { ServiceService } from "./service.service";
 import { ServiceController } from "./service.controller";
+import { R2Module } from "../storage/r2.module";
 
 @Module({
   imports: [
     MongooseModule.forFeature([{ name: Service.name, schema: ServiceSchema }]),
+    R2Module,
   ],
   controllers: [ServiceController],
   providers: [ServiceService, ServiceRepo],

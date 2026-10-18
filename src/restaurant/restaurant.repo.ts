@@ -33,4 +33,29 @@ export class RestaurantRepo {
   ): Promise<RestaurantDocument[]> {
     return this.restaurantModel.find({ branchId, isActive: true }).exec();
   }
+
+  async addImages(
+    id: Types.ObjectId,
+    imageUrls: string[],
+    coverImageUrl?: string,
+  ): Promise<RestaurantDocument | null> {
+    const update: any = {
+      $addToSet: { images: { $each: imageUrls } },
+    };
+    if (coverImageUrl) {
+      update.$set = { coverImage: coverImageUrl };
+    }
+    return this.restaurantModel
+      .findByIdAndUpdate(id, update, { new: true })
+      .exec();
+  }
+
+  async removeImage(
+    id: Types.ObjectId,
+    imageUrl: string,
+  ): Promise<RestaurantDocument | null> {
+    return this.restaurantModel
+      .findByIdAndUpdate(id, { $pull: { images: imageUrl } }, { new: true })
+      .exec();
+  }
 }

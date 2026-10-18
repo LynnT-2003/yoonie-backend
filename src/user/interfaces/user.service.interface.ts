@@ -108,4 +108,6 @@ export interface IUserService {
   ): Promise<void>;
 
   isUserHasAnySocialLoginProvider(id: string): Promise<boolean>;
+
+  uploadAvatar(userId: string, file: Express.Multer.File): Promise<IUserPublic>;
 }

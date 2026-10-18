@@ -178,4 +178,51 @@ The following models support image storage:
 | **`Room`** | `coverImage`, `images[]` | Room thumbnail and high-resolution room gallery for direct booking |
 | **`Restaurant`** | `coverImage`, `images[]` | Outlet atmosphere photo and dining gallery |
 | **`Service`** | `coverImage`, `images[]` | Tour/excursion boat photos, spa rooms, and transfer vehicle images |
-| **`User`** | `avatarUrl` *(optional)* | Profile photo for staff and guests |
+| **`User`** | `avatar` | Profile photo for staff and guests |
+
+---
+
+## 6. One-Call Endpoints Reference
+
+Every domain collection in Yoonie supports **1-call operations** for creating entities with images attached, adding images to existing entities, and removing images. Both `application/json` (with image URLs) and `multipart/form-data` (with binary file uploads) are supported.
+
+### 6.1 Rooms (`/api/rooms`)
+* **Create with Images (1 call)**: `POST /api/rooms`
+  * Form fields: `branchId`, `roomNumber`, `floor`, `roomType`, `maxOccupancy`, `baseRateThb`, `amenities`
+  * File fields: `coverImage` (single file), `images` (up to 10 files)
+* **Upload & Attach Photos (1 call)**: `POST /api/rooms/:id/images?isCover=false`
+  * File field: `images` (up to 10 files)
+* **Remove Photo**: `DELETE /api/rooms/:id/images?imageUrl=...`
+
+### 6.2 Restaurants & Venues (`/api/restaurants`)
+* **Create with Images (1 call)**: `POST /api/restaurants`
+  * Form fields: `branchId`, `code`, `name`, `cuisine`, `description`, `tables`, `shifts`
+  * File fields: `coverImage` (single file), `images` (up to 10 files)
+* **Upload & Attach Photos (1 call)**: `POST /api/restaurants/:id/images?isCover=false`
+  * File field: `images` (up to 10 files)
+* **Remove Photo**: `DELETE /api/restaurants/:id/images?imageUrl=...`
+
+### 6.3 Services, Tours & Spas (`/api/services`)
+* **Create with Images (1 call)**: `POST /api/services`
+  * Form fields: `branchId`, `code`, `category`, `kind`, `name`, `description`, `basePriceThb`, `pricingModel`, `tour`, `wellness`, `transfer`
+  * File fields: `coverImage` (single file), `images` (up to 10 files)
+* **Upload & Attach Photos (1 call)**: `POST /api/services/:id/images?isCover=false`
+  * File field: `images` (up to 10 files)
+* **Remove Photo**: `DELETE /api/services/:id/images?imageUrl=...`
+
+### 6.4 Branches & Hotel Properties (`/api/branches`)
+* **Create with Logo & Images (1 call)**: `POST /api/branches`
+  * Form fields: `code`, `name`, `timezone`, `currency`, `contactPhoneE164`, `contactEmail`
+  * File fields: `logo` (single file), `heroImage` (single file), `images` (up to 10 files)
+* **Upload & Attach Photos (1 call)**: `POST /api/branches/:idOrCode/images?isHero=false`
+  * File field: `images` (up to 10 files)
+* **Upload Brand Logo (1 call)**: `POST /api/branches/:idOrCode/logo`
+  * File field: `file` (single image)
+* **Remove Photo**: `DELETE /api/branches/:idOrCode/images?imageUrl=...`
+
+### 6.5 User Profile Avatar (`/api/users`)
+* **Update Avatar (1 call)**: `POST /api/users/me/avatar`
+  * File field: `file` (single image)
+* **Update Profile with Avatar (1 call)**: `PATCH /api/users/me`
+  * Form field: `displayName`
+  * File field: `avatar` (single image)

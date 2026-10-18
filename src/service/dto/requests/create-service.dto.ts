@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
-import { Type } from "class-transformer";
+import { Transform, Type } from "class-transformer";
 import {
   IsArray,
   IsBoolean,
@@ -181,6 +181,7 @@ export class CreateServiceDto {
   description?: string;
 
   @ApiProperty({ example: 2500 })
+  @Type(() => Number)
   @IsNumber()
   @Min(0)
   basePriceThb!: number;
@@ -190,19 +191,81 @@ export class CreateServiceDto {
   @IsNotEmpty()
   pricingModel!: PricingModel;
 
+  @ApiPropertyOptional({
+    example: "https://images.yoonie.si/services/canal-tour-cover.webp",
+    description: "Main cover image URL (if not uploading binary file)",
+  })
+  @IsString()
+  @IsOptional()
+  coverImage?: string;
+
+  @ApiPropertyOptional({
+    example: [
+      "https://images.yoonie.si/services/canal-tour-1.webp",
+      "https://images.yoonie.si/services/canal-tour-2.webp",
+    ],
+    type: [String],
+    description: "Gallery image URLs (if not uploading binary files)",
+  })
+  @Transform(({ value }) => {
+    if (typeof value === "string") {
+      try {
+        const parsed = JSON.parse(value);
+        return Array.isArray(parsed) ? parsed : [value];
+      } catch {
+        return value.split(",").map((s) => s.trim());
+      }
+    }
+    return value;
+  })
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  images?: string[] = [];
+
   @ApiPropertyOptional({ type: TourConfigInputDto })
+  @Transform(({ value }) => {
+    if (typeof value === "string") {
+      try {
+        return JSON.parse(value);
+      } catch {
+        return value;
+      }
+    }
+    return value;
+  })
   @ValidateNested()
   @Type(() => TourConfigInputDto)
   @IsOptional()
   tour?: TourConfigInputDto;
 
   @ApiPropertyOptional({ type: WellnessConfigInputDto })
+  @Transform(({ value }) => {
+    if (typeof value === "string") {
+      try {
+        return JSON.parse(value);
+      } catch {
+        return value;
+      }
+    }
+    return value;
+  })
   @ValidateNested()
   @Type(() => WellnessConfigInputDto)
   @IsOptional()
   wellness?: WellnessConfigInputDto;
 
   @ApiPropertyOptional({ type: TransferConfigInputDto })
+  @Transform(({ value }) => {
+    if (typeof value === "string") {
+      try {
+        return JSON.parse(value);
+      } catch {
+        return value;
+      }
+    }
+    return value;
+  })
   @ValidateNested()
   @Type(() => TransferConfigInputDto)
   @IsOptional()

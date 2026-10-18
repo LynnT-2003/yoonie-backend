@@ -14,6 +14,7 @@ import { UserRepo } from "./user.repo";
 import { ConfigService } from "@nestjs/config";
 import { MailService } from "../mail/mail.service";
 import { ConfigurationError } from "../common/errors/configuration.error";
+import { R2Service } from "../storage/r2.service";
 
 @Injectable()
 export class UserService implements IUserService {
@@ -21,6 +22,7 @@ export class UserService implements IUserService {
     private readonly userRepo: UserRepo,
     private readonly configService: ConfigService,
     private readonly mailService: MailService,
+    private readonly r2Service: R2Service,
   ) {}
 
   // ─── Find By Id ─────────────────────────────────────────────────────────────
@@ -140,6 +142,22 @@ export class UserService implements IUserService {
 
   async updateUser(id: string, dto: UpdateUserDto): Promise<IUserPublic> {
     const user = await this.userRepo.updateProfile(id, dto);
+
+    if (!user) {
+      throw new NotFoundException("User not found");
+    }
+
+    return this.toPublic(user);
+  }
+
+  async uploadAvatar(
+    userId: string,
+    file: Express.Multer.File,
+  ): Promise<IUserPublic> {
+    const uploadRes = await this.r2Service.uploadFile(file, `avatars/${userId}`);
+    const user = await this.userRepo.updateProfile(userId, {
+      avatar: uploadRes.url,
+    });
 
     if (!user) {
       throw new NotFoundException("User not found");

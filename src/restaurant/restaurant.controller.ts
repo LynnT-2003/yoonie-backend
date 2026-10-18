@@ -1,6 +1,25 @@
-import { Controller, Get, Param, Query } from "@nestjs/common";
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Post,
+  Query,
+  UploadedFiles,
+  UseInterceptors,
+} from "@nestjs/common";
+import {
+  FileFieldsInterceptor,
+  FilesInterceptor,
+} from "@nestjs/platform-express";
 import {
   ApiBearerAuth,
+  ApiBody,
+  ApiConsumes,
   ApiOperation,
   ApiResponse,
   ApiTags,
@@ -8,6 +27,7 @@ import {
 import { Public } from "../common/decorators/public.decorator";
 import { RestaurantService } from "./restaurant.service";
 import { QueryRestaurantDto } from "./dto/requests/query-restaurant.dto";
+import { CreateRestaurantDto } from "./dto/requests/create-restaurant.dto";
 import { RestaurantResponseDto } from "./dto/responses/restaurant-response.dto";
 
 @ApiTags("Restaurants & Dining")
@@ -42,5 +62,92 @@ export class RestaurantController {
   })
   async findById(@Param("id") id: string) {
     return this.restaurantService.findById(id);
+  }
+
+  @Public()
+  @Post()
+  @HttpCode(HttpStatus.CREATED)
+  @UseInterceptors(
+    FileFieldsInterceptor([
+      { name: "coverImage", maxCount: 1 },
+      { name: "images", maxCount: 10 },
+    ]),
+  )
+  @ApiOperation({
+    summary: "Create a restaurant venue (with optional images in one shot)",
+    description:
+      "Creates a new restaurant. Supports both JSON and multipart/form-data with image file uploads.",
+  })
+  @ApiConsumes("multipart/form-data", "application/json")
+  @ApiResponse({
+    status: 201,
+    description: "Restaurant created successfully",
+    type: RestaurantResponseDto,
+  })
+  async create(
+    @Body() dto: CreateRestaurantDto,
+    @UploadedFiles()
+    files?: {
+      coverImage?: Express.Multer.File[];
+      images?: Express.Multer.File[];
+    },
+  ) {
+    return this.restaurantService.create(dto, files);
+  }
+
+  @Public()
+  @Post(":id/images")
+  @HttpCode(HttpStatus.OK)
+  @UseInterceptors(FilesInterceptor("images", 10))
+  @ApiOperation({
+    summary: "Upload & attach photos to an existing restaurant in 1 call",
+  })
+  @ApiConsumes("multipart/form-data")
+  @ApiBody({
+    schema: {
+      type: "object",
+      required: ["images"],
+      properties: {
+        images: {
+          type: "array",
+          items: { type: "string", format: "binary" },
+          description: "One or more image files to upload and attach",
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: "Images uploaded and restaurant updated",
+    type: RestaurantResponseDto,
+  })
+  async uploadImages(
+    @Param("id") id: string,
+    @UploadedFiles() files: Express.Multer.File[],
+    @Query("isCover") isCover?: boolean,
+  ) {
+    if (!files || files.length === 0) {
+      throw new BadRequestException("At least one image file must be provided");
+    }
+    return this.restaurantService.uploadImages(id, files, isCover);
+  }
+
+  @Public()
+  @Delete(":id/images")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Remove an image from a restaurant" })
+  @ApiResponse({
+    status: 200,
+    description: "Image removed from restaurant",
+    type: RestaurantResponseDto,
+  })
+  async removeImage(
+    @Param("id") id: string,
+    @Query("imageUrl") imageUrl: string,
+  ) {
+    if (!imageUrl) {
+      throw new BadRequestException("Query parameter 'imageUrl' is required");
+    }
+    return this.restaurantService.removeImage(id, imageUrl);
   }
 }

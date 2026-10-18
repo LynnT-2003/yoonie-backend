@@ -3,10 +3,94 @@ import { Types } from "mongoose";
 import { RoomRepo } from "./room.repo";
 import { RoomDocument } from "./entity/room.entity";
 import { CleaningStatus } from "../common/enums/cleaning-status.enum";
+import { R2Service } from "../storage/r2.service";
+import { CreateRoomDto } from "./dto/requests/create-room.dto";
 
 @Injectable()
 export class RoomService {
-  constructor(private readonly roomRepo: RoomRepo) {}
+  constructor(
+    private readonly roomRepo: RoomRepo,
+    private readonly r2Service: R2Service,
+  ) {}
+
+  async create(
+    dto: CreateRoomDto,
+    files?: {
+      coverImage?: Express.Multer.File[];
+      images?: Express.Multer.File[];
+    },
+  ): Promise<RoomDocument> {
+    let coverImageUrl = dto.coverImage;
+    const imageUrls = [...(dto.images || [])];
+    const folder = `rooms/${dto.branchId}/${dto.roomType.toLowerCase()}`;
+
+    // 1. Upload cover image if provided as file
+    if (files?.coverImage && files.coverImage[0]) {
+      const uploadRes = await this.r2Service.uploadFile(
+        files.coverImage[0],
+        folder,
+      );
+      coverImageUrl = uploadRes.url;
+    }
+
+    // 2. Upload gallery images if provided as files
+    if (files?.images && files.images.length > 0) {
+      const uploadPromises = files.images.map((file) =>
+        this.r2Service.uploadFile(file, folder),
+      );
+      const results = await Promise.all(uploadPromises);
+      imageUrls.push(...results.map((r) => r.url));
+    }
+
+    return this.roomRepo.create({
+      branchId: new Types.ObjectId(dto.branchId),
+      roomNumber: dto.roomNumber,
+      floor: dto.floor,
+      roomType: dto.roomType,
+      maxOccupancy: dto.maxOccupancy,
+      baseRateThb: dto.baseRateThb,
+      amenities: dto.amenities || [],
+      coverImage: coverImageUrl,
+      images: imageUrls,
+      cleaningStatus: CleaningStatus.INSPECTED,
+      isActive: true,
+    });
+  }
+
+  async uploadImages(
+    roomId: string,
+    files: Express.Multer.File[],
+    isCover: boolean = false,
+  ): Promise<RoomDocument> {
+    const room = await this.roomRepo.findById(roomId);
+    if (!room) {
+      throw new NotFoundException(`Room ${roomId} not found`);
+    }
+
+    const folder = `rooms/${room.branchId.toString()}/${room.roomType.toLowerCase()}`;
+    const uploadPromises = files.map((file) =>
+      this.r2Service.uploadFile(file, folder),
+    );
+    const results = await Promise.all(uploadPromises);
+    const urls = results.map((r) => r.url);
+
+    const coverUrl = isCover && urls.length > 0 ? urls[0] : undefined;
+    const updated = await this.roomRepo.addImages(
+      room._id,
+      urls,
+      coverUrl,
+    );
+    return updated!;
+  }
+
+  async removeImage(roomId: string, imageUrl: string): Promise<RoomDocument> {
+    const room = await this.roomRepo.findById(roomId);
+    if (!room) {
+      throw new NotFoundException(`Room ${roomId} not found`);
+    }
+    const updated = await this.roomRepo.removeImage(room._id, imageUrl);
+    return updated!;
+  }
 
   async findAllByBranch(branchId: string): Promise<RoomDocument[]> {
     return this.roomRepo.findAllByBranch(new Types.ObjectId(branchId));

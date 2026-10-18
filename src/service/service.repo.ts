@@ -35,4 +35,33 @@ export class ServiceRepo {
     if (category) filter.category = category;
     return this.serviceModel.find(filter).exec();
   }
+
+  async addImages(
+    id: string | Types.ObjectId,
+    images: string[],
+    coverImage?: string,
+  ): Promise<ServiceDocument | null> {
+    const update: Record<string, unknown> = {
+      $push: { images: { $each: images } },
+    };
+    if (coverImage) {
+      update.coverImage = coverImage;
+    }
+    return this.serviceModel
+      .findByIdAndUpdate(id, update, { new: true })
+      .exec();
+  }
+
+  async removeImage(
+    id: string | Types.ObjectId,
+    imageUrl: string,
+  ): Promise<ServiceDocument | null> {
+    return this.serviceModel
+      .findByIdAndUpdate(
+        id,
+        { $pull: { images: imageUrl } },
+        { new: true },
+      )
+      .exec();
+  }
 }

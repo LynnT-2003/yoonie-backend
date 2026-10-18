@@ -99,6 +99,25 @@ export class CreateRestaurantDto {
   @IsOptional()
   cuisine?: string;
 
+  @ApiPropertyOptional({
+    example: "https://images.yoonie.si/restaurants/grill-cover.webp",
+  })
+  @IsString()
+  @IsOptional()
+  coverImage?: string;
+
+  @ApiPropertyOptional({
+    example: [
+      "https://images.yoonie.si/restaurants/grill-1.webp",
+      "https://images.yoonie.si/restaurants/grill-2.webp",
+    ],
+    type: [String],
+  })
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  images?: string[];
+
   @ApiProperty({ example: 60 })
   @IsInt()
   @Min(1)
