@@ -21,6 +21,39 @@ export class BlockedRange {
 export const BlockedRangeSchema = SchemaFactory.createForClass(BlockedRange);
 
 /**
+ * Room Document Schema Example:
+ * -------------------------------------------------------------
+ * {
+ *   "_id": ObjectId("665a1b2c3d4e5f6a7b8c9d1a"),
+ *   "branchId": ObjectId("665a1b2c3d4e5f6a7b8c9d0e"),
+ *   "roomNumber": "101",
+ *   "floor": 1,
+ *   "roomType": "STANDARD_KING",
+ *   "maxOccupancy": 2,
+ *   "baseRateThb": 2200,
+ *   "amenities": [
+ *     "King Bed",
+ *     "En-suite Bath",
+ *     "Smart TV",
+ *     "River View",
+ *     "High-speed Wi-Fi"
+ *   ],
+ *   "cleaningStatus": "INSPECTED",
+ *   "cleaningUpdatedAt": ISODate("2026-10-18T08:30:00.000Z"),
+ *   "cleaningUpdatedBy": ObjectId("665a1b2c3d4e5f6a7b8c9d0a"),
+ *   "blockedRanges": [
+ *     {
+ *       "from": "2026-10-25",
+ *       "to": "2026-10-28",
+ *       "reason": "MAINTENANCE",
+ *       "createdBy": ObjectId("665a1b2c3d4e5f6a7b8c9d0a")
+ *     }
+ *   ],
+ *   "isActive": true,
+ *   "createdAt": ISODate("2026-10-18T00:00:00.000Z"),
+ *   "updatedAt": ISODate("2026-10-18T08:30:00.000Z")
+ * }
+ * -------------------------------------------------------------
  * Physical unit. Availability is NOT computed from this collection.
  * Selling happens against inventory_slots (ROOM_NIGHT per roomType per night).
  * Rooms hold state that changes by the minute (housekeeping) and static config.
