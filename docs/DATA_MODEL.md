@@ -39,7 +39,7 @@ erDiagram
     SERVICE }o--o{ USER : "vehicles[].defaultDriverId"
 
     INVENTORY_HOLD ||--|{ INVENTORY_SLOT : "lines[].slotKey (held qty)"
-    INVENTORY_HOLD |o--o| ORDER : "claimed by, via order.holdId"
+    INVENTORY_HOLD |o--o| ORDER : "claimed by order.holdId"
 
     USER ||--o{ ORDER : "guestId"
     ORDER ||--|{ ORDER_LINE : "items[]"
@@ -59,56 +59,56 @@ erDiagram
         string name
         string timezone
         string currency
-        object settings "vatRate, serviceChargeRate, holdTtlMinutes, consolidationThreshold, dispatchGenerationTime"
+        object settings "vatRate / serviceChargeRate / holdTtlMinutes / consolidationThreshold / dispatchGenerationTime"
     }
     USER {
         string email UK
-        string role "user, admin, BRANCH_MGR, DISPATCHER, STAFF, GUEST"
-        ObjectId[] branchIds
+        string role "user / admin / BRANCH_MGR / DISPATCHER / STAFF / GUEST"
+        objectid_array branchIds
         string phoneE164
         string lineUserId
         bool whatsappOptIn
-        object stats "lifetimeSpendThb, stayCount, orderCount"
+        object stats "lifetimeSpendThb / stayCount / orderCount"
         number vipScore
     }
     ROOM {
         ObjectId branchId FK
         string roomNumber UK_per_branch
-        string roomType "STANDARD_KING, DELUXE_BALCONY, POOL_VILLA"
-        string cleaningStatus "CLEAN, DIRTY, IN_PROGRESS, INSPECTED"
-        object[] blockedRanges "MAINTENANCE, OWNER_HOLD, RENOVATION"
+        string roomType "STANDARD_KING / DELUXE_BALCONY / POOL_VILLA"
+        string cleaningStatus "CLEAN / DIRTY / IN_PROGRESS / INSPECTED"
+        object_array blockedRanges "MAINTENANCE / OWNER_HOLD / RENOVATION"
     }
     RESTAURANT {
         ObjectId branchId FK
         string code UK_per_branch
-        object[] tables
-        object[] shifts
+        object_array tables
+        object_array shifts
         number maxSeats
     }
     SERVICE {
         ObjectId branchId FK
         string code UK_per_branch
-        string category "TOURS, WELLNESS, TRANSPORT"
-        string kind "AIRPORT_TRANSFER, SCHEDULED_TOUR, SPA_TREATMENT"
+        string category "TOURS / WELLNESS / TRANSPORT"
+        string kind "AIRPORT_TRANSFER / SCHEDULED_TOUR / SPA_TREATMENT"
         number basePriceThb
-        object tourConfig_or_wellnessConfig_or_transferConfig "exactly one, by kind"
+        object tourConfig_or_wellnessConfig_or_transferConfig "exactly one by kind"
     }
     INVENTORY_SLOT {
         string slotKey UK "branch+kind+resourceKey+startsAt"
-        string kind "ROOM_NIGHT, DINING, SERVICE"
+        string kind "ROOM_NIGHT / DINING / SERVICE"
         ObjectId resourceId
         string businessDate
         number capacity
         number held
         number booked
-        string status "OPEN, CLOSED, CANCELLED"
+        string status "OPEN / CLOSED / CANCELLED"
     }
     INVENTORY_HOLD {
         ObjectId branchId FK
         string cartId
         ObjectId orderId FK "set on confirm"
-        object[] lines "slotKey, qty"
-        string status "ACTIVE, CONVERTED, RELEASED, EXPIRED"
+        object_array lines "slotKey + qty"
+        string status "ACTIVE / CONVERTED / RELEASED / EXPIRED"
         date expiresAt
         date purgeAt "TTL index"
     }
@@ -116,16 +116,16 @@ erDiagram
         string orderNumber UK
         ObjectId branchId FK
         ObjectId guestId FK
-        string status "PENDING, CONFIRMED, CANCELLED, COMPLETED"
-        object attribution "utmSource, utmCampaign, channel"
-        object totals "subtotal, discount, serviceCharge, vat, grandTotal"
+        string status "PENDING / CONFIRMED / CANCELLED / COMPLETED"
+        object attribution "utmSource + utmCampaign + channel"
+        object totals "subtotal + discount + serviceCharge + vat + grandTotal"
         ObjectId holdId FK
         string idempotencyKey UK
     }
     ORDER_LINE {
         string lineId
-        string kind "STAY, DINING, SERVICE"
-        string status "PENDING, CONFIRMED, CANCELLED, COMPLETED, NO_SHOW"
+        string kind "STAY / DINING / SERVICE"
+        string status "PENDING / CONFIRMED / CANCELLED / COMPLETED / NO_SHOW"
         number totalThb
         date startsAt
         date endsAt
@@ -133,10 +133,10 @@ erDiagram
     OPERATIONAL_DISPATCH {
         ObjectId branchId FK
         string serviceDate
-        string type "HOUSEKEEPING_TURNAROUND, TOUR_CONSOLIDATION, AIRPORT_PICKUP"
+        string type "HOUSEKEEPING_TURNAROUND / TOUR_CONSOLIDATION / AIRPORT_PICKUP"
         number priorityScore
-        string severity "INFO, WARN, CRITICAL"
-        string status "OPEN, ACKNOWLEDGED, IN_PROGRESS, DONE, DISMISSED"
+        string severity "INFO / WARN / CRITICAL"
+        string status "OPEN / ACKNOWLEDGED / IN_PROGRESS / DONE / DISMISSED"
         string dedupeKey UK_per_branch_date_type
     }
 ```
