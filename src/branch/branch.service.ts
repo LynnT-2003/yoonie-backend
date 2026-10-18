@@ -4,8 +4,8 @@ import {
   ConflictException,
 } from "@nestjs/common";
 import { BranchRepo } from "./branch.repo";
-import { Branch, BranchDocument } from "./entity/branch.entity";
-import { CreateBranchDto } from "./dto/create-branch.dto";
+import { BranchDocument } from "./entity/branch.entity";
+import { CreateBranchDto } from "./dto/requests/create-branch.dto";
 
 @Injectable()
 export class BranchService {
