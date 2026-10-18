@@ -124,17 +124,17 @@ erDiagram
         number vipScore
     }
     ROOM {
-        string roomNumber UK_per_branch
+        string roomNumber UK "unique per branch"
         string roomType "STANDARD_KING / DELUXE_BALCONY / POOL_VILLA"
         string cleaningStatus "CLEAN / DIRTY / IN_PROGRESS / INSPECTED"
     }
     RESTAURANT {
-        string code UK_per_branch
+        string code UK "unique per branch"
         object_array tables
         object_array shifts
     }
     SERVICE {
-        string code UK_per_branch
+        string code UK "unique per branch"
         string category "TOURS / WELLNESS / TRANSPORT"
         string kind "AIRPORT_TRANSFER / SCHEDULED_TOUR / SPA_TREATMENT"
     }
@@ -166,7 +166,7 @@ erDiagram
         string type "HOUSEKEEPING_TURNAROUND / TOUR_CONSOLIDATION / AIRPORT_PICKUP"
         string severity "INFO / WARN / CRITICAL"
         string status "OPEN / ACKNOWLEDGED / IN_PROGRESS / DONE / DISMISSED"
-        string dedupeKey UK_per_branch_date_type
+        string dedupeKey UK "unique per branch, date, type"
     }
 ```
 
@@ -248,7 +248,7 @@ sequenceDiagram
     Rules-->>Dispatch: {en, th} bilingual card text
     Dispatch->>Dispatch: upsertDispatch(dedupeKey) — AIRPORT_PICKUP
 
-    Msg-->>Guest: Pickup card delivered<br/>(channel field ready; sender not yet wired)
+    Msg-->>Guest: Pickup card delivered<br/>(channel field ready, sender not yet wired)
 ```
 
 ---

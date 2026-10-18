@@ -73,21 +73,21 @@ erDiagram
     }
     ROOM {
         ObjectId branchId FK
-        string roomNumber UK_per_branch
+        string roomNumber UK "unique per branch"
         string roomType "STANDARD_KING / DELUXE_BALCONY / POOL_VILLA"
         string cleaningStatus "CLEAN / DIRTY / IN_PROGRESS / INSPECTED"
         object_array blockedRanges "MAINTENANCE / OWNER_HOLD / RENOVATION"
     }
     RESTAURANT {
         ObjectId branchId FK
-        string code UK_per_branch
+        string code UK "unique per branch"
         object_array tables
         object_array shifts
         number maxSeats
     }
     SERVICE {
         ObjectId branchId FK
-        string code UK_per_branch
+        string code UK "unique per branch"
         string category "TOURS / WELLNESS / TRANSPORT"
         string kind "AIRPORT_TRANSFER / SCHEDULED_TOUR / SPA_TREATMENT"
         number basePriceThb
@@ -137,7 +137,7 @@ erDiagram
         number priorityScore
         string severity "INFO / WARN / CRITICAL"
         string status "OPEN / ACKNOWLEDGED / IN_PROGRESS / DONE / DISMISSED"
-        string dedupeKey UK_per_branch_date_type
+        string dedupeKey UK "unique per branch, date, type"
     }
 ```
 
