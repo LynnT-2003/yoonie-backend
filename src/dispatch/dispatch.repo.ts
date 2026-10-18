@@ -15,12 +15,20 @@ export class DispatchRepo {
   ) {}
 
   async findByServiceDate(
-    branchId: Types.ObjectId,
+    branchId: Types.ObjectId | Types.ObjectId[],
     serviceDate: string,
     status?: DispatchStatus,
     type?: DispatchType,
   ): Promise<OperationalDispatchDocument[]> {
-    const filter: Record<string, unknown> = { branchId, serviceDate };
+    const branchFilter = Array.isArray(branchId)
+      ? branchId.length > 0
+        ? { $in: branchId }
+        : undefined
+      : branchId;
+    const filter: Record<string, unknown> = {
+      ...(branchFilter ? { branchId: branchFilter } : {}),
+      serviceDate,
+    };
     if (status) filter.status = status;
     if (type) filter.type = type;
 

@@ -2,6 +2,10 @@ import { ApiPropertyOptional } from "@nestjs/swagger";
 import { IsOptional, IsString, IsUrl, MaxLength } from "class-validator";
 
 export class UpdateUserDto {
+  isSuspended?: boolean;
+  suspensionReason?: string;
+  suspendedAt?: Date;
+
   @ApiPropertyOptional({ example: "Jane Doe", maxLength: 64 })
   @IsOptional()
   @IsString()

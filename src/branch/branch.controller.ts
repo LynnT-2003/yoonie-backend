@@ -27,6 +27,10 @@ import {
   ApiTags,
 } from "@nestjs/swagger";
 import { Public } from "../common/decorators/public.decorator";
+import { Roles } from "../common/decorators/roles.decorator";
+import { CurrentUser } from "../common/decorators/current-user.decorator";
+import { UserRole } from "../common/enums/user-role.enum";
+import { ICurrentUser } from "../common/interfaces/user.interface";
 import { BranchService } from "./branch.service";
 import { CreateBranchDto } from "./dto/requests/create-branch.dto";
 import { BranchResponseDto } from "./dto/responses/branch-response.dto";
@@ -61,23 +65,27 @@ export class BranchController {
     return this.branchService.findByCode(code);
   }
 
-  @Public()
+  @Roles(UserRole.ADMIN)
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
-    summary: "Create a new branch property",
-    description: "Creates a new branch property with property details and image URLs.",
+    summary: "Create a new branch property (Platform Admin only)",
+    description:
+      "Creates a new branch property with property details and image URLs. Only platform admin can create branches.",
   })
   @ApiResponse({
     status: 201,
     description: "Branch created",
     type: BranchResponseDto,
   })
-  async create(@Body() dto: CreateBranchDto) {
-    return this.branchService.create(dto);
+  async create(
+    @CurrentUser() user: ICurrentUser,
+    @Body() dto: CreateBranchDto,
+  ) {
+    return this.branchService.create(user, dto);
   }
 
-  @Public()
+  @Roles(UserRole.ADMIN, UserRole.BRANCH_MGR)
   @Post(":idOrCode/images")
   @HttpCode(HttpStatus.OK)
   @UseInterceptors(FilesInterceptor("images", 10))
@@ -106,6 +114,7 @@ export class BranchController {
     type: BranchResponseDto,
   })
   async uploadImages(
+    @CurrentUser() user: ICurrentUser,
     @Param("idOrCode") idOrCode: string,
     @UploadedFiles() files: Express.Multer.File[],
     @Query("isHero") isHero?: boolean,
@@ -113,10 +122,10 @@ export class BranchController {
     if (!files || files.length === 0) {
       throw new BadRequestException("At least one image file must be provided");
     }
-    return this.branchService.uploadImages(idOrCode, files, isHero);
+    return this.branchService.uploadImages(user, idOrCode, files, isHero);
   }
 
-  @Public()
+  @Roles(UserRole.ADMIN, UserRole.BRANCH_MGR)
   @Post(":idOrCode/logo")
   @HttpCode(HttpStatus.OK)
   @UseInterceptors(FileInterceptor("file"))
@@ -145,16 +154,17 @@ export class BranchController {
     type: BranchResponseDto,
   })
   async uploadLogo(
+    @CurrentUser() user: ICurrentUser,
     @Param("idOrCode") idOrCode: string,
     @UploadedFile() file: Express.Multer.File,
   ) {
     if (!file) {
       throw new BadRequestException("A logo image file must be provided");
     }
-    return this.branchService.uploadLogo(idOrCode, file);
+    return this.branchService.uploadLogo(user, idOrCode, file);
   }
 
-  @Public()
+  @Roles(UserRole.ADMIN, UserRole.BRANCH_MGR)
   @Delete(":idOrCode/images")
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Remove an image from a branch gallery" })
@@ -164,12 +174,13 @@ export class BranchController {
     type: BranchResponseDto,
   })
   async removeImage(
+    @CurrentUser() user: ICurrentUser,
     @Param("idOrCode") idOrCode: string,
     @Query("imageUrl") imageUrl: string,
   ) {
     if (!imageUrl) {
       throw new BadRequestException("Query parameter 'imageUrl' is required");
     }
-    return this.branchService.removeImage(idOrCode, imageUrl);
+    return this.branchService.removeImage(user, idOrCode, imageUrl);
   }
 }

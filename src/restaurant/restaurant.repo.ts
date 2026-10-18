@@ -58,4 +58,13 @@ export class RestaurantRepo {
       .findByIdAndUpdate(id, { $pull: { images: imageUrl } }, { new: true })
       .exec();
   }
+
+  async update(
+    id: Types.ObjectId,
+    data: Partial<Restaurant>,
+  ): Promise<RestaurantDocument | null> {
+    return this.restaurantModel
+      .findByIdAndUpdate(id, { $set: data }, { new: true })
+      .exec();
+  }
 }

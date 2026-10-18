@@ -72,11 +72,16 @@ export class RoomRepo {
     imageUrl: string,
   ): Promise<RoomDocument | null> {
     return this.roomModel
-      .findByIdAndUpdate(
-        roomId,
-        { $pull: { images: imageUrl } },
-        { new: true },
-      )
+      .findByIdAndUpdate(roomId, { $pull: { images: imageUrl } }, { new: true })
+      .exec();
+  }
+
+  async update(
+    roomId: Types.ObjectId,
+    data: Partial<Room>,
+  ): Promise<RoomDocument | null> {
+    return this.roomModel
+      .findByIdAndUpdate(roomId, { $set: data }, { new: true })
       .exec();
   }
 }

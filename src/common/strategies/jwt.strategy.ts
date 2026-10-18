@@ -38,18 +38,18 @@ export class JwtStrategy extends PassportStrategy(Strategy, "jwt") {
   async validate(payload: IJwtPayload): Promise<ICurrentUser> {
     const user = await this.userService.findById(payload.sub);
 
-    if (!user) {
-      throw new UnauthorizedException("User no longer exists");
+    if (!user || user.isSuspended) {
+      throw new UnauthorizedException("User no longer exists or is suspended");
     }
 
     return {
       userId: payload.sub,
       email: payload.email,
       role: user.role,
-      // Admin module stub — always false until `yulio add admin` wires SuspendedUserBlockGuard.
-      // To enable suspension enforcement, run `yulio add admin`.
-      // Safe to replace with `!!user.isSuspended` if not using yulio's admin module.
-      isSuspended: false,
+      isSuspended: user.isSuspended || false,
+      branchIds: (user.branchIds || []).map((id) => id.toString()),
+      permissions: user.permissions || [],
+      isPlatformAdmin: user.isPlatformAdmin || false,
     };
   }
 }

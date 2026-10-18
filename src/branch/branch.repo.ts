@@ -39,9 +39,7 @@ export class BranchRepo {
     if (heroImageUrl) {
       update.heroImageUrl = heroImageUrl;
     }
-    return this.branchModel
-      .findByIdAndUpdate(id, update, { new: true })
-      .exec();
+    return this.branchModel.findByIdAndUpdate(id, update, { new: true }).exec();
   }
 
   async removeImage(
@@ -49,11 +47,7 @@ export class BranchRepo {
     imageUrl: string,
   ): Promise<BranchDocument | null> {
     return this.branchModel
-      .findByIdAndUpdate(
-        id,
-        { $pull: { images: imageUrl } },
-        { new: true },
-      )
+      .findByIdAndUpdate(id, { $pull: { images: imageUrl } }, { new: true })
       .exec();
   }
 

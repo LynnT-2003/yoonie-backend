@@ -57,11 +57,16 @@ export class ServiceRepo {
     imageUrl: string,
   ): Promise<ServiceDocument | null> {
     return this.serviceModel
-      .findByIdAndUpdate(
-        id,
-        { $pull: { images: imageUrl } },
-        { new: true },
-      )
+      .findByIdAndUpdate(id, { $pull: { images: imageUrl } }, { new: true })
+      .exec();
+  }
+
+  async update(
+    id: string | Types.ObjectId,
+    data: Partial<Service>,
+  ): Promise<ServiceDocument | null> {
+    return this.serviceModel
+      .findByIdAndUpdate(id, { $set: data }, { new: true })
       .exec();
   }
 }

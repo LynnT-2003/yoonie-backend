@@ -6,6 +6,7 @@ import {
 } from "../../../common/interfaces/user.interface";
 import { UserRole } from "../../../common/enums/user-role.enum";
 import { OAuthProviderType } from "../../../common/enums/oauth-provider.enum";
+import { Permission } from "../../../common/enums/permission.enum";
 
 /**
  * Swagger response schema for public user data.
@@ -40,10 +41,44 @@ export class UserPublicDto implements IUserPublic {
 
   @ApiProperty({
     enum: UserRole,
-    example: UserRole.USER,
+    example: UserRole.GUEST,
     description: "User role",
   })
   role!: UserRole;
+
+  @ApiProperty({
+    example: ["665a1b2c3d4e5f6a7b8c9d0e"],
+    type: [String],
+    description: "Branch IDs the user has access to",
+  })
+  branchIds!: string[];
+
+  @ApiProperty({
+    enum: Permission,
+    isArray: true,
+    example: [Permission.HOUSEKEEPING_INSPECT],
+    description: "Granted permissions for staff",
+  })
+  permissions!: Permission[];
+
+  @ApiProperty({
+    example: "HOUSEKEEPER",
+    nullable: true,
+    description: "Job title for staff member",
+  })
+  jobTitle!: string | null;
+
+  @ApiProperty({
+    example: false,
+    description: "Cross-branch platform admin flag",
+  })
+  isPlatformAdmin!: boolean;
+
+  @ApiProperty({
+    example: false,
+    description: "Whether the user must change password upon next login",
+  })
+  mustChangePassword!: boolean;
 
   @ApiProperty({
     example: false,

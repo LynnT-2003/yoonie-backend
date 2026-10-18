@@ -2,8 +2,10 @@ import { ApiProperty } from "@nestjs/swagger";
 
 export class PresignedUrlResponseDto {
   @ApiProperty({
-    example: "https://<account_id>.r2.cloudflarestorage.com/yoonie-media/rooms/uuid.jpg?X-Amz-Algorithm=...",
-    description: "Presigned PUT URL for direct browser/client upload to Cloudflare R2",
+    example:
+      "https://<account_id>.r2.cloudflarestorage.com/yoonie-media/rooms/uuid.jpg?X-Amz-Algorithm=...",
+    description:
+      "Presigned PUT URL for direct browser/client upload to Cloudflare R2",
   })
   uploadUrl!: string;
 
@@ -21,7 +23,8 @@ export class PresignedUrlResponseDto {
 
   @ApiProperty({
     example: 900,
-    description: "Presigned URL expiration time in seconds (default: 15 minutes)",
+    description:
+      "Presigned URL expiration time in seconds (default: 15 minutes)",
   })
   expiresInSeconds!: number;
 }

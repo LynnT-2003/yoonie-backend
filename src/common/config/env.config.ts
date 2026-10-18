@@ -32,6 +32,13 @@ export function loadEnvConfigs(): EnvironmentConfigs {
       uri: process.env.MONGODB_URI,
       url: process.env.DATABASE_URL,
     },
+    staffOpsConfig: {
+      workerEnabled: process.env.WORKER_ENABLED === "true",
+      internalTickSecret: process.env.INTERNAL_TICK_SECRET,
+      lineChannelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN,
+      lineMessagingChannelSecret: process.env.LINE_MESSAGING_CHANNEL_SECRET,
+      expoAccessToken: process.env.EXPO_ACCESS_TOKEN,
+    },
     corsConfig: {
       origin: allowedOrigins,
       credentials: true,

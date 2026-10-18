@@ -1,10 +1,17 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+} from "@nestjs/common";
 import { Types } from "mongoose";
 import { ServiceRepo } from "./service.repo";
 import { ServiceDocument } from "./entity/service.entity";
 import { ServiceCategory } from "../common/enums/service.enum";
 import { R2Service } from "../storage/r2.service";
 import { CreateServiceDto } from "./dto/requests/create-service.dto";
+import { UpdateServiceDto } from "./dto/requests/update-service.dto";
+import { ICurrentUser } from "../common/interfaces/user.interface";
+import { validateBranchAccess } from "../common/helpers/branch-access.helper";
 
 @Injectable()
 export class ServiceService {
@@ -13,7 +20,12 @@ export class ServiceService {
     private readonly r2Service: R2Service,
   ) {}
 
-  async create(dto: CreateServiceDto): Promise<ServiceDocument> {
+  async create(
+    user: ICurrentUser,
+    dto: CreateServiceDto,
+  ): Promise<ServiceDocument> {
+    validateBranchAccess(user, dto.branchId);
+
     return this.serviceRepo.create({
       branchId: new Types.ObjectId(dto.branchId),
       code: dto.code,
@@ -33,6 +45,7 @@ export class ServiceService {
   }
 
   async uploadImages(
+    user: ICurrentUser,
     serviceId: string,
     files: Express.Multer.File[],
     isCover: boolean = false,
@@ -41,6 +54,7 @@ export class ServiceService {
     if (!service) {
       throw new NotFoundException(`Service ${serviceId} not found`);
     }
+    validateBranchAccess(user, service.branchId);
 
     const folder = `services/${service.branchId.toString()}/${service.category.toLowerCase()}`;
     const uploadPromises = files.map((file) =>
@@ -58,11 +72,17 @@ export class ServiceService {
     return updated!;
   }
 
-  async removeImage(serviceId: string, imageUrl: string): Promise<ServiceDocument> {
+  async removeImage(
+    user: ICurrentUser,
+    serviceId: string,
+    imageUrl: string,
+  ): Promise<ServiceDocument> {
     const service = await this.serviceRepo.findById(serviceId);
     if (!service) {
       throw new NotFoundException(`Service ${serviceId} not found`);
     }
+    validateBranchAccess(user, service.branchId);
+
     const updated = await this.serviceRepo.removeImage(service._id, imageUrl);
     return updated!;
   }
@@ -71,10 +91,11 @@ export class ServiceService {
     branchId: string,
     category?: ServiceCategory,
   ): Promise<ServiceDocument[]> {
-    return this.serviceRepo.findAllByBranch(
+    const list = await this.serviceRepo.findAllByBranch(
       new Types.ObjectId(branchId),
       category,
     );
+    return list.filter((s) => s.isActive !== false);
   }
 
   async findById(id: string): Promise<ServiceDocument> {
@@ -94,5 +115,35 @@ export class ServiceService {
       throw new NotFoundException(`Service code ${code} not found`);
     }
     return service;
+  }
+
+  async update(
+    user: ICurrentUser,
+    id: string,
+    dto: UpdateServiceDto,
+  ): Promise<ServiceDocument> {
+    const existing = await this.findById(id);
+    validateBranchAccess(user, existing.branchId);
+
+    const updateData: Record<string, unknown> = {};
+    if (dto.name !== undefined) updateData.name = dto.name;
+    if (dto.category !== undefined) updateData.category = dto.category;
+    if (dto.kind !== undefined) updateData.kind = dto.kind;
+    if (dto.description !== undefined) updateData.description = dto.description;
+    if (dto.basePriceThb !== undefined)
+      updateData.basePriceThb = dto.basePriceThb;
+    if (dto.pricingModel !== undefined)
+      updateData.pricingModel = dto.pricingModel;
+    if (dto.coverImage !== undefined) updateData.coverImage = dto.coverImage;
+    if (dto.images !== undefined) updateData.images = dto.images;
+    if (dto.tour !== undefined) updateData.tour = dto.tour;
+    if (dto.wellness !== undefined) updateData.wellness = dto.wellness;
+    if (dto.transfer !== undefined) updateData.transfer = dto.transfer;
+
+    const updated = await this.serviceRepo.update(id, updateData as any);
+    if (!updated) {
+      throw new NotFoundException(`Service ${id} not found`);
+    }
+    return updated;
   }
 }

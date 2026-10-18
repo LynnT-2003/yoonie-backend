@@ -1,6 +1,10 @@
 import { OAuthUserDto } from "../dto/oauth-user.dto";
 import { UpdateUserDto } from "../dto/update-user.dto";
-import { IUser, IUserPublic } from "../../common/interfaces/user.interface";
+import {
+  IUser,
+  IUserPublic,
+  ICurrentUser,
+} from "../../common/interfaces/user.interface";
 
 export interface IUserService {
   /**
@@ -110,4 +114,21 @@ export interface IUserService {
   isUserHasAnySocialLoginProvider(id: string): Promise<boolean>;
 
   uploadAvatar(userId: string, file: Express.Multer.File): Promise<IUserPublic>;
+
+  inviteStaff(
+    inviter: ICurrentUser,
+    dto: import("../dto/invite-staff.dto").InviteStaffDto,
+  ): Promise<{ user: IUserPublic; tempPassword: string }>;
+
+  deactivateStaff(
+    inviter: ICurrentUser,
+    targetUserId: string,
+    reason?: string,
+  ): Promise<void>;
+
+  createLineLinkToken(
+    userId: string,
+  ): Promise<{ code: string; expiresAt: Date }>;
+
+  linkLineUser(rawCode: string, lineUserId: string): Promise<boolean>;
 }

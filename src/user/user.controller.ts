@@ -24,11 +24,12 @@ import {
 
 import { UserService } from "./user.service";
 import { UpdateUserDto } from "./dto/update-user.dto";
+import { InviteStaffDto } from "./dto/invite-staff.dto";
+import { InviteStaffResponseDto } from "./dto/invite-staff-response.dto";
 import { CurrentUser } from "../common/decorators/current-user.decorator";
 import { Roles } from "../common/decorators/roles.decorator";
 import { ICurrentUser, IUserPublic } from "../common/interfaces/user.interface";
 import { UserRole } from "../common/enums/user-role.enum";
-import { Public } from "../common/decorators/public.decorator";
 import { AllowSuspendedUser } from "../common/decorators/allow-suspended-user.decorator";
 
 const USER_EXAMPLE = {
@@ -36,7 +37,7 @@ const USER_EXAMPLE = {
   email: "john@example.com",
   displayName: "John Doe",
   avatar: null,
-  role: "user",
+  role: UserRole.GUEST,
   isEmailVerified: false,
   providers: [],
   isSuspended: false,
@@ -138,6 +139,42 @@ export class UserController {
     return { message: "Account deleted successfully" };
   }
 
+  @Post("staff")
+  @Roles(UserRole.ADMIN, UserRole.BRANCH_MGR)
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary: "Invite/create a new staff member (Admin/Branch Manager only)",
+    description:
+      "Creates a new staff member with server-generated temporary password and mustChangePassword=true. The inviter must own all granted branches and cannot grant a role above their own.",
+  })
+  @ApiBody({ type: InviteStaffDto })
+  @ApiResponse({
+    status: 201,
+    description: "Staff created successfully with temporary password",
+    type: InviteStaffResponseDto,
+  })
+  @ApiResponse({ status: 403, description: "Forbidden" })
+  async inviteStaff(
+    @CurrentUser() user: ICurrentUser,
+    @Body() dto: InviteStaffDto,
+  ): Promise<InviteStaffResponseDto> {
+    return (await this.userService.inviteStaff(user, dto)) as any;
+  }
+
+  @Patch("staff/:id/deactivate")
+  @Roles(UserRole.ADMIN, UserRole.BRANCH_MGR)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Deactivate a staff member" })
+  @ApiResponse({ status: 200, description: "Staff deactivated successfully" })
+  async deactivateStaff(
+    @CurrentUser() user: ICurrentUser,
+    @Param("id") targetUserId: string,
+    @Body("reason") reason?: string,
+  ): Promise<{ message: string }> {
+    await this.userService.deactivateStaff(user, targetUserId, reason);
+    return { message: "Staff deactivated successfully" };
+  }
+
   @Get("admin")
   @Roles(UserRole.ADMIN)
   @HttpCode(HttpStatus.OK)
@@ -145,7 +182,7 @@ export class UserController {
   @ApiResponse({
     status: 200,
     description: "Admin profile",
-    schema: { example: { ...USER_EXAMPLE, role: "admin" } },
+    schema: { example: { ...USER_EXAMPLE, role: UserRole.ADMIN } },
   })
   @ApiResponse({ status: 401, description: "Unauthorized" })
   @ApiResponse({ status: 403, description: "Forbidden — admin role required" })

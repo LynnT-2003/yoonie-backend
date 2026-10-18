@@ -1,6 +1,12 @@
-import { Injectable, Logger } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  ForbiddenException,
+} from "@nestjs/common";
 import { InjectConnection } from "@nestjs/mongoose";
 import { ClientSession, Connection, Types } from "mongoose";
+import * as crypto from "crypto";
 import { InventoryRepo } from "./inventory.repo";
 import { InventoryHoldDocument } from "./entity/inventory-hold.entity";
 import { HoldStatus } from "../common/enums/inventory.enum";
@@ -74,6 +80,8 @@ export class InventoryService {
           heldSlots.push(l.slotKey);
         }
 
+        const holdToken = `ht_${crypto.randomUUID().replace(/-/g, "")}`;
+
         return await this.inventoryRepo.createHold(
           {
             branchId,
@@ -81,6 +89,7 @@ export class InventoryService {
             lines: ordered,
             status: HoldStatus.ACTIVE,
             expiresAt: new Date(Date.now() + ttlMinutes * 60_000),
+            holdToken,
           },
           session,
         );
@@ -138,6 +147,22 @@ export class InventoryService {
       }
       return true;
     });
+  }
+
+  async releaseWithToken(
+    holdId: Types.ObjectId,
+    holdToken?: string,
+  ): Promise<boolean> {
+    const hold = await this.inventoryRepo.findHoldById(holdId);
+    if (!hold) {
+      throw new NotFoundException(`Hold ${holdId.toString()} not found`);
+    }
+
+    if (!holdToken || hold.holdToken !== holdToken) {
+      throw new ForbiddenException("Invalid or missing hold token");
+    }
+
+    return this.release(holdId, HoldStatus.RELEASED);
   }
 
   async sweepExpired(batch = 200): Promise<number> {

@@ -24,12 +24,19 @@ async function bootstrap() {
   (app as any).set("trust proxy", true);
 
   // ─── Swagger ─────────────────────────────────────────────────────────────────
-  buildAPIDocs(app);
+  const appEnv = configService.get<{ appEnvironment: string }>(
+    "appConfig",
+  )?.appEnvironment;
+  if (appEnv !== "Production") {
+    buildAPIDocs(app);
+  }
 
   const port = configService.get("serverConfig").port;
   await app.listen(port);
   console.log(`🚀 Application is running on: http://localhost:${port}`);
-  console.log(`📚 Swagger documentation: http://localhost:${port}/api/docs`);
+  if (appEnv !== "Production") {
+    console.log(`📚 Swagger documentation: http://localhost:${port}/api/docs`);
+  }
 }
 
 bootstrap();

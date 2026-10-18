@@ -1,6 +1,12 @@
 import { ApiProperty } from "@nestjs/swagger";
 import { Transform } from "class-transformer";
-import { IsArray, IsNotEmpty, IsOptional, IsString, Matches } from "class-validator";
+import {
+  IsArray,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  Matches,
+} from "class-validator";
 
 export class CreateBranchDto {
   @ApiProperty({

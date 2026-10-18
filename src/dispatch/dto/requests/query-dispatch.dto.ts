@@ -14,13 +14,13 @@ import {
 import { BUSINESS_DATE } from "../../../common/helpers/regex.helper";
 
 export class QueryDispatchDto {
-  @ApiProperty({
+  @ApiPropertyOptional({
     example: "665a1b2c3d4e5f6a7b8c9d0e1",
     description: "Branch ObjectId to query dispatches for",
   })
   @IsMongoId()
-  @IsNotEmpty()
-  branchId!: string;
+  @IsOptional()
+  branchId?: string;
 
   @ApiProperty({
     example: "2026-10-20",

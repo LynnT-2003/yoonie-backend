@@ -1,9 +1,16 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+} from "@nestjs/common";
 import { Types } from "mongoose";
 import { RestaurantRepo } from "./restaurant.repo";
 import { RestaurantDocument } from "./entity/restaurant.entity";
 import { R2Service } from "../storage/r2.service";
 import { CreateRestaurantDto } from "./dto/requests/create-restaurant.dto";
+import { UpdateRestaurantDto } from "./dto/requests/update-restaurant.dto";
+import { ICurrentUser } from "../common/interfaces/user.interface";
+import { validateBranchAccess } from "../common/helpers/branch-access.helper";
 
 @Injectable()
 export class RestaurantService {
@@ -12,7 +19,12 @@ export class RestaurantService {
     private readonly r2Service: R2Service,
   ) {}
 
-  async create(dto: CreateRestaurantDto): Promise<RestaurantDocument> {
+  async create(
+    user: ICurrentUser,
+    dto: CreateRestaurantDto,
+  ): Promise<RestaurantDocument> {
+    validateBranchAccess(user, dto.branchId);
+
     const totalSeats = (dto.tables || []).reduce(
       (acc, t) => acc + (t.seats || 0),
       0,
@@ -35,6 +47,7 @@ export class RestaurantService {
   }
 
   async uploadImages(
+    user: ICurrentUser,
     restaurantId: string,
     files: Express.Multer.File[],
     isCover: boolean = false,
@@ -43,6 +56,7 @@ export class RestaurantService {
     if (!restaurant) {
       throw new NotFoundException(`Restaurant ${restaurantId} not found`);
     }
+    validateBranchAccess(user, restaurant.branchId);
 
     const folder = `restaurants/${restaurant.branchId.toString()}/${restaurant.code.toLowerCase()}`;
     const uploadPromises = files.map((file) =>
@@ -60,12 +74,21 @@ export class RestaurantService {
     return updated!;
   }
 
-  async removeImage(restaurantId: string, imageUrl: string): Promise<RestaurantDocument> {
+  async removeImage(
+    user: ICurrentUser,
+    restaurantId: string,
+    imageUrl: string,
+  ): Promise<RestaurantDocument> {
     const restaurant = await this.restaurantRepo.findById(restaurantId);
     if (!restaurant) {
       throw new NotFoundException(`Restaurant ${restaurantId} not found`);
     }
-    const updated = await this.restaurantRepo.removeImage(restaurant._id, imageUrl);
+    validateBranchAccess(user, restaurant.branchId);
+
+    const updated = await this.restaurantRepo.removeImage(
+      restaurant._id,
+      imageUrl,
+    );
     return updated!;
   }
 
@@ -93,5 +116,40 @@ export class RestaurantService {
       throw new NotFoundException(`Restaurant code ${code} not found`);
     }
     return restaurant;
+  }
+
+  async update(
+    user: ICurrentUser,
+    id: string,
+    dto: UpdateRestaurantDto,
+  ): Promise<RestaurantDocument> {
+    const existing = await this.findById(id);
+    validateBranchAccess(user, existing.branchId);
+
+    const updateData: Record<string, unknown> = {};
+    if (dto.name !== undefined) updateData.name = dto.name;
+    if (dto.cuisine !== undefined) updateData.cuisine = dto.cuisine;
+    if (dto.maxSeats !== undefined) updateData.maxSeats = dto.maxSeats;
+    if (dto.avgTurnMinutes !== undefined)
+      updateData.avgTurnMinutes = dto.avgTurnMinutes;
+    if (dto.tables !== undefined) {
+      updateData.tables = dto.tables;
+      updateData.totalSeats = (dto.tables || []).reduce(
+        (acc, t) => acc + (t.seats || 0),
+        0,
+      );
+    }
+    if (dto.shifts !== undefined) updateData.shifts = dto.shifts;
+    if (dto.coverImage !== undefined) updateData.coverImage = dto.coverImage;
+    if (dto.images !== undefined) updateData.images = dto.images;
+
+    const updated = await this.restaurantRepo.update(
+      new Types.ObjectId(id),
+      updateData as any,
+    );
+    if (!updated) {
+      throw new NotFoundException(`Restaurant ${id} not found`);
+    }
+    return updated;
   }
 }

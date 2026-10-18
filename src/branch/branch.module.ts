@@ -1,4 +1,4 @@
-import { Module } from "@nestjs/common";
+import { Global, Module } from "@nestjs/common";
 import { MongooseModule } from "@nestjs/mongoose";
 import { Branch, BranchSchema } from "./entity/branch.entity";
 import { BranchRepo } from "./branch.repo";
@@ -6,6 +6,7 @@ import { BranchService } from "./branch.service";
 import { BranchController } from "./branch.controller";
 import { R2Module } from "../storage/r2.module";
 
+@Global()
 @Module({
   imports: [
     MongooseModule.forFeature([{ name: Branch.name, schema: BranchSchema }]),

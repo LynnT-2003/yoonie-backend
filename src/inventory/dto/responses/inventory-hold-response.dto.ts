@@ -37,6 +37,9 @@ export class InventoryHoldResponseDto {
   @ApiPropertyOptional({ example: "2026-10-18T15:00:00.000Z" })
   purgeAt?: Date;
 
+  @ApiPropertyOptional({ example: "ht_665a1b2c3d4e5f6a7b8c9d5e_xyz" })
+  holdToken?: string;
+
   @ApiProperty({ example: "2026-10-18T14:30:00.000Z" })
   createdAt!: Date;
 

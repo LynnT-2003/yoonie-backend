@@ -2,12 +2,15 @@ import {
   Injectable,
   NotFoundException,
   ConflictException,
+  ForbiddenException,
 } from "@nestjs/common";
 import { Types } from "mongoose";
 import { BranchRepo } from "./branch.repo";
 import { BranchDocument } from "./entity/branch.entity";
 import { CreateBranchDto } from "./dto/requests/create-branch.dto";
 import { R2Service } from "../storage/r2.service";
+import { ICurrentUser } from "../common/interfaces/user.interface";
+import { validateBranchAccess } from "../common/helpers/branch-access.helper";
 
 @Injectable()
 export class BranchService {
@@ -28,7 +31,16 @@ export class BranchService {
     return b;
   }
 
-  async create(dto: CreateBranchDto): Promise<BranchDocument> {
+  async create(
+    user: ICurrentUser,
+    dto: CreateBranchDto,
+  ): Promise<BranchDocument> {
+    if (!user.isPlatformAdmin) {
+      throw new ForbiddenException(
+        "Only platform administrators can create a branch",
+      );
+    }
+
     const existing = await this.branchRepo.findByCode(dto.code);
     if (existing) {
       throw new ConflictException(`Branch code ${dto.code} already exists`);
@@ -49,12 +61,15 @@ export class BranchService {
   }
 
   async uploadImages(
+    user: ICurrentUser,
     idOrCode: string,
     files: Express.Multer.File[],
     isHero: boolean = false,
   ): Promise<BranchDocument> {
     const branch = await this.resolveBranch(idOrCode);
-    const folder = `branches/${branch.code.toLowerCase()}`;
+    validateBranchAccess(user, branch._id);
+
+    const folder = `branches/${branch._id.toString()}`;
     const uploadPromises = files.map((file) =>
       this.r2Service.uploadFile(file, folder),
     );
@@ -62,27 +77,32 @@ export class BranchService {
     const urls = results.map((r) => r.url);
 
     const heroUrl = isHero && urls.length > 0 ? urls[0] : undefined;
-    const updated = await this.branchRepo.addImages(
-      branch._id,
-      urls,
-      heroUrl,
-    );
+    const updated = await this.branchRepo.addImages(branch._id, urls, heroUrl);
     return updated!;
   }
 
   async uploadLogo(
+    user: ICurrentUser,
     idOrCode: string,
     file: Express.Multer.File,
   ): Promise<BranchDocument> {
     const branch = await this.resolveBranch(idOrCode);
-    const folder = `branches/${branch.code.toLowerCase()}`;
+    validateBranchAccess(user, branch._id);
+
+    const folder = `branches/${branch._id.toString()}`;
     const uploadRes = await this.r2Service.uploadFile(file, folder);
     const updated = await this.branchRepo.updateLogo(branch._id, uploadRes.url);
     return updated!;
   }
 
-  async removeImage(idOrCode: string, imageUrl: string): Promise<BranchDocument> {
+  async removeImage(
+    user: ICurrentUser,
+    idOrCode: string,
+    imageUrl: string,
+  ): Promise<BranchDocument> {
     const branch = await this.resolveBranch(idOrCode);
+    validateBranchAccess(user, branch._id);
+
     const updated = await this.branchRepo.removeImage(branch._id, imageUrl);
     return updated!;
   }
