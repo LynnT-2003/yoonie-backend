@@ -18,6 +18,7 @@ import { ServiceModule } from "./service/service.module";
 import { InventoryModule } from "./inventory/inventory.module";
 import { OrderModule } from "./order/order.module";
 import { DispatchModule } from "./dispatch/dispatch.module";
+import { R2Module } from "./storage/r2.module";
 
 @Module({
   imports: [
@@ -57,6 +58,7 @@ import { DispatchModule } from "./dispatch/dispatch.module";
     InventoryModule,
     OrderModule,
     DispatchModule,
+    R2Module,
   ],
   providers: [
     // ─── Global Guards ─────────────────────────────────────────────────────────
