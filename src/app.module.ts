@@ -7,6 +7,7 @@ import { AuthModule } from "./auth/auth.module";
 import { UserModule } from "./user/user.module";
 import { JwtGuard } from "./common/guards/jwt.guard";
 import { RolesGuard } from "./common/guards/roles.guard";
+import { PermissionsGuard } from "./common/guards/permissions.guard";
 import { HttpExceptionFilter } from "./common/filters/http-exception.filter";
 import { TransformInterceptor } from "./common/interceptors/transform.interceptor";
 import { loadEnvConfigs } from "./common/config/env.config";
@@ -19,6 +20,11 @@ import { InventoryModule } from "./inventory/inventory.module";
 import { OrderModule } from "./order/order.module";
 import { DispatchModule } from "./dispatch/dispatch.module";
 import { R2Module } from "./storage/r2.module";
+import { ScheduleModule } from "@nestjs/schedule";
+import { StaffModule } from "./staff/staff.module";
+import { DevicesModule } from "./devices/devices.module";
+import { NotificationsModule } from "./notifications/notifications.module";
+import { AuditModule } from "./audit/audit.module";
 
 @Module({
   imports: [
@@ -28,6 +34,9 @@ import { R2Module } from "./storage/r2.module";
       envFilePath: ".env",
       load: [loadEnvConfigs],
     }),
+
+    // ─── Task Scheduling ───────────────────────────────────────────────────────
+    ScheduleModule.forRoot(),
 
     // ─── Rate Limiting ─────────────────────────────────────────────────────────
     ThrottlerModule.forRootAsync({
@@ -42,11 +51,6 @@ import { R2Module } from "./storage/r2.module";
       }),
     }),
 
-    // ─── Database (added by yulio init / dev:setup-{mongo,postgres}) ──────────
-    // The chosen db variant injects its connection module here:
-    //   db-mongoose → MongooseModule.forRootAsync({ ... })
-    //   db-postgres → PrismaModule
-
     // ─── Feature Modules ───────────────────────────────────────────────────────
     AuthModule,
     UserModule,
@@ -59,6 +63,10 @@ import { R2Module } from "./storage/r2.module";
     OrderModule,
     DispatchModule,
     R2Module,
+    StaffModule,
+    DevicesModule,
+    NotificationsModule,
+    AuditModule,
   ],
   providers: [
     // ─── Global Guards ─────────────────────────────────────────────────────────
@@ -76,6 +84,11 @@ import { R2Module } from "./storage/r2.module";
     {
       provide: APP_GUARD,
       useClass: RolesGuard,
+    },
+    // PermissionsGuard runs after RolesGuard
+    {
+      provide: APP_GUARD,
+      useClass: PermissionsGuard,
     },
 
     // ─── Global Filter ─────────────────────────────────────────────────────────

@@ -12,18 +12,21 @@ export class GetPresignedUrlDto {
 
   @ApiProperty({
     example: "image/jpeg",
-    description: "MIME type of the file (e.g. image/jpeg, image/png, image/webp)",
+    description:
+      "MIME type of the file (e.g. image/jpeg, image/png, image/webp)",
   })
   @IsString()
   @IsNotEmpty()
   @Matches(/^image\/(jpeg|png|webp|avif|gif|svg\+xml)$/, {
-    message: "contentType must be a supported image MIME type (jpeg, png, webp, avif, gif, svg+xml)",
+    message:
+      "contentType must be a supported image MIME type (jpeg, png, webp, avif, gif, svg+xml)",
   })
   contentType!: string;
 
   @ApiPropertyOptional({
     example: "rooms",
-    description: "Destination folder/prefix in R2 bucket (e.g. rooms, restaurants, services, avatars)",
+    description:
+      "Destination folder/prefix in R2 bucket (e.g. rooms, restaurants, services, avatars)",
     default: "uploads",
   })
   @IsString()

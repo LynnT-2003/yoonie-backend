@@ -80,7 +80,9 @@ export class R2Service {
     const publicUrl = `${this.publicUrl}/${key}`;
 
     if (!this.isConfigured || !this.s3Client) {
-      this.logger.warn(`R2 not configured. Returning mock presigned URL for ${key}`);
+      this.logger.warn(
+        `R2 not configured. Returning mock presigned URL for ${key}`,
+      );
       return {
         uploadUrl: `https://mock-r2.local/upload/${key}?mockToken=true`,
         key,
@@ -107,7 +109,10 @@ export class R2Service {
         expiresInSeconds,
       };
     } catch (error: any) {
-      this.logger.error(`Failed to generate presigned URL: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to generate presigned URL: ${error.message}`,
+        error.stack,
+      );
       throw new InternalServerErrorException(
         `Failed to generate R2 presigned upload URL: ${error.message}`,
       );
@@ -153,7 +158,10 @@ export class R2Service {
         sizeBytes: file.size,
       };
     } catch (error: any) {
-      this.logger.error(`Failed to upload file to R2: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to upload file to R2: ${error.message}`,
+        error.stack,
+      );
       throw new InternalServerErrorException(
         `Failed to upload file to Cloudflare R2: ${error.message}`,
       );
@@ -178,7 +186,10 @@ export class R2Service {
       );
       return true;
     } catch (error: any) {
-      this.logger.error(`Failed to delete file from R2: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to delete file from R2: ${error.message}`,
+        error.stack,
+      );
       throw new InternalServerErrorException(
         `Failed to delete file from Cloudflare R2: ${error.message}`,
       );

@@ -53,6 +53,7 @@ import { UserService } from "../user/user.service";
 import { ConfigService } from "@nestjs/config";
 import { ServerConfig } from "../common/config/types/env";
 import { buildOAuthSpaRedirectUrl } from "./helpers/oauth-spa-redirect.helper";
+import { Throttle } from "@nestjs/throttler";
 
 @ApiExtraModels(
   AuthResponseDto,
@@ -61,6 +62,7 @@ import { buildOAuthSpaRedirectUrl } from "./helpers/oauth-spa-redirect.helper";
   MessageResponseDto,
   UserPublicDto,
 )
+@Throttle({ default: { limit: 10, ttl: 60000 } })
 @Controller("auth")
 export class AuthController {
   constructor(

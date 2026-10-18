@@ -127,6 +127,15 @@ export class Branch {
   @Prop({ type: String, lowercase: true })
   contactEmail?: string;
 
+  @Prop({ type: String })
+  logoUrl?: string;
+
+  @Prop({ type: String })
+  heroImageUrl?: string;
+
+  @Prop({ type: [String], default: [] })
+  images!: string[];
+
   @Prop({ type: BranchSettingsSchema, default: () => ({}) })
   settings!: BranchSettings;
 

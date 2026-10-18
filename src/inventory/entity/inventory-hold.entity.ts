@@ -63,6 +63,9 @@ export class InventoryHold {
   @Prop({ type: Date, required: true })
   expiresAt!: Date;
 
+  @Prop({ type: String })
+  holdToken?: string;
+
   /** set when the hold reaches a terminal state, TTL index garbage collects it later */
   @Prop({ type: Date })
   purgeAt?: Date;

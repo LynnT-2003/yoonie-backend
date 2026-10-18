@@ -242,8 +242,10 @@ export class OrderResponseDto {
   @ApiProperty({ type: PaymentInfoResponseDto })
   payment!: PaymentInfoResponseDto;
 
-  @ApiPropertyOptional({ example: "Early check-in requested if possible" })
-  specialRequests?: string;
+  @ApiPropertyOptional({
+    example: "665a1b2c3d4e5f6a7b8c9d6f.1731859200000.a1b2c3d4e5",
+  })
+  orderToken?: string;
 
   @ApiProperty({ example: "2026-10-18T00:00:00.000Z" })
   createdAt!: Date;

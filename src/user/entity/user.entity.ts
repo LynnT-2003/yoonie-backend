@@ -3,6 +3,7 @@ import { Document, Types } from "mongoose";
 import { OAuthProviderType } from "../../common/enums/oauth-provider.enum";
 import { UserRole } from "../../common/enums/user-role.enum";
 import { PaymentPlanId } from "../../common/enums/payment-plan.enum";
+import { Permission } from "../../common/enums/permission.enum";
 
 // ─── Subdocument: OAuthProvider ───────────────────────────────────────────────
 
@@ -122,7 +123,7 @@ export class User {
   @Prop({
     type: String,
     enum: UserRole,
-    default: UserRole.USER,
+    default: UserRole.GUEST,
   })
   role: UserRole;
 
@@ -162,6 +163,12 @@ export class User {
   @Prop({ type: String, trim: true, default: null })
   lineUserId: string | null;
 
+  @Prop({ type: String, default: null, select: false })
+  lineLinkToken: string | null;
+
+  @Prop({ type: Date, default: null })
+  lineLinkExpiresAt: Date | null;
+
   @Prop({ type: Boolean, default: false })
   whatsappOptIn: boolean;
 
@@ -176,6 +183,38 @@ export class User {
 
   @Prop({ type: String, default: null })
   jobTitle: string | null;
+
+  @Prop({ type: [String], enum: Object.values(Permission), default: [] })
+  permissions: Permission[];
+
+  @Prop({ type: Boolean, default: false })
+  isPlatformAdmin: boolean;
+
+  @Prop({ type: Boolean, default: false })
+  mustChangePassword: boolean;
+
+  @Prop({
+    type: {
+      enabledChannels: { type: [String], default: ["inbox", "push"] },
+      quietHours: {
+        enabled: { type: Boolean, default: false },
+        start: { type: String, default: "22:00" },
+        end: { type: String, default: "07:00" },
+      },
+    },
+    default: () => ({
+      enabledChannels: ["inbox", "push"],
+      quietHours: { enabled: false, start: "22:00", end: "07:00" },
+    }),
+  })
+  notificationPrefs: {
+    enabledChannels: string[];
+    quietHours: {
+      enabled: boolean;
+      start: string;
+      end: string;
+    };
+  };
 
   @Prop({
     type: {
@@ -281,6 +320,12 @@ UserSchema.index(
   {
     unique: true,
     partialFilterExpression: { lineUserId: { $type: "string" } },
+  },
+);
+UserSchema.index(
+  { lineLinkToken: 1 },
+  {
+    partialFilterExpression: { lineLinkToken: { $type: "string" } },
   },
 );
 UserSchema.index({ role: 1, vipScore: -1 });

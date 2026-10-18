@@ -38,6 +38,21 @@ export class RoomResponseDto {
   @ApiProperty({ example: ["King Bed", "En-suite Bath", "Smart TV"] })
   amenities!: string[];
 
+  @ApiProperty({
+    example: "https://images.yoonie.si/rooms/standard-king-cover.webp",
+    required: false,
+  })
+  coverImage?: string;
+
+  @ApiProperty({
+    example: [
+      "https://images.yoonie.si/rooms/standard-king-1.webp",
+      "https://images.yoonie.si/rooms/standard-king-2.webp",
+    ],
+    type: [String],
+  })
+  images!: string[];
+
   @ApiProperty({ enum: CleaningStatus, example: CleaningStatus.INSPECTED })
   cleaningStatus!: CleaningStatus;
 

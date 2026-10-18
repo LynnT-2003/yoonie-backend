@@ -146,6 +146,12 @@ export class Service {
   @Prop({ type: String })
   description?: string;
 
+  @Prop({ type: String })
+  coverImage?: string;
+
+  @Prop({ type: [String], default: [] })
+  images!: string[];
+
   @Prop({ required: true, min: 0 })
   basePriceThb!: number;
 

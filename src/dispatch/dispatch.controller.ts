@@ -7,18 +7,25 @@ import {
   Param,
   Patch,
   Query,
+  UseInterceptors,
 } from "@nestjs/common";
 import {
   ApiBearerAuth,
+  ApiHeader,
   ApiOperation,
   ApiResponse,
   ApiTags,
 } from "@nestjs/swagger";
-import { Public } from "../common/decorators/public.decorator";
+import { Roles } from "../common/decorators/roles.decorator";
+import { CurrentUser } from "../common/decorators/current-user.decorator";
+import { UserRole } from "../common/enums/user-role.enum";
+import { ICurrentUser } from "../common/interfaces/user.interface";
+import { resolveScopedBranchIds } from "../common/helpers/branch-access.helper";
 import { DispatchService } from "./dispatch.service";
 import { UpdateDispatchStatusDto } from "./dto/requests/update-dispatch-status.dto";
 import { QueryDispatchDto } from "./dto/requests/query-dispatch.dto";
 import { DispatchTaskResponseDto } from "./dto/responses/dispatch-task-response.dto";
+import { IdempotencyInterceptor } from "../staff/interceptors/idempotency.interceptor";
 
 @ApiTags("Operations & Dispatch")
 @ApiBearerAuth("JWT-auth")
@@ -26,26 +33,43 @@ import { DispatchTaskResponseDto } from "./dto/responses/dispatch-task-response.
 export class DispatchController {
   constructor(private readonly dispatchService: DispatchService) {}
 
-  @Public()
+  @Roles(UserRole.ADMIN, UserRole.BRANCH_MGR, UserRole.DISPATCHER)
   @Get()
-  @ApiOperation({ summary: "Get daily operational dispatch run-sheet" })
+  @ApiOperation({
+    summary: "Get daily operational dispatch run-sheet (branch-scoped)",
+  })
   @ApiResponse({
     status: 200,
     description: "List of prioritized dispatch tasks",
     type: [DispatchTaskResponseDto],
   })
-  async getDispatches(@Query() query: QueryDispatchDto) {
+  async getDispatches(
+    @CurrentUser() user: ICurrentUser,
+    @Query() query: QueryDispatchDto,
+  ) {
+    const scopedBranchIds = resolveScopedBranchIds(user, query.branchId);
     return this.dispatchService.findByServiceDate(
-      query.branchId,
+      scopedBranchIds,
       query.serviceDate,
       query.status,
       query.type,
     );
   }
 
-  @Public()
+  @Roles(
+    UserRole.ADMIN,
+    UserRole.BRANCH_MGR,
+    UserRole.DISPATCHER,
+    UserRole.STAFF,
+  )
+  @UseInterceptors(IdempotencyInterceptor)
   @Patch(":id/status")
   @HttpCode(HttpStatus.OK)
+  @ApiHeader({
+    name: "Idempotency-Key",
+    description: "Unique idempotency key for offline replay protection",
+    required: false,
+  })
   @ApiOperation({
     summary: "Update dispatch task status (acknowledge, in progress, done)",
   })
@@ -55,10 +79,12 @@ export class DispatchController {
     type: DispatchTaskResponseDto,
   })
   async updateStatus(
+    @CurrentUser() user: ICurrentUser,
     @Param("id") id: string,
     @Body() dto: UpdateDispatchStatusDto,
   ) {
     return this.dispatchService.updateStatus(
+      user,
       id,
       dto.status,
       dto.assigneeUserId,

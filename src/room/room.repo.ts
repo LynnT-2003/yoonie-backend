@@ -50,4 +50,38 @@ export class RoomRepo {
       )
       .exec();
   }
+
+  async addImages(
+    roomId: Types.ObjectId,
+    imageUrls: string[],
+    coverImageUrl?: string,
+  ): Promise<RoomDocument | null> {
+    const update: any = {
+      $addToSet: { images: { $each: imageUrls } },
+    };
+    if (coverImageUrl) {
+      update.$set = { coverImage: coverImageUrl };
+    }
+    return this.roomModel
+      .findByIdAndUpdate(roomId, update, { new: true })
+      .exec();
+  }
+
+  async removeImage(
+    roomId: Types.ObjectId,
+    imageUrl: string,
+  ): Promise<RoomDocument | null> {
+    return this.roomModel
+      .findByIdAndUpdate(roomId, { $pull: { images: imageUrl } }, { new: true })
+      .exec();
+  }
+
+  async update(
+    roomId: Types.ObjectId,
+    data: Partial<Room>,
+  ): Promise<RoomDocument | null> {
+    return this.roomModel
+      .findByIdAndUpdate(roomId, { $set: data }, { new: true })
+      .exec();
+  }
 }

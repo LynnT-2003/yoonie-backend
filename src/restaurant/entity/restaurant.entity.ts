@@ -117,6 +117,12 @@ export class Restaurant {
   @Prop({ type: String })
   cuisine?: string;
 
+  @Prop({ type: String })
+  coverImage?: string;
+
+  @Prop({ type: [String], default: [] })
+  images!: string[];
+
   @Prop({ type: [RestaurantTableSchema], default: [] })
   tables!: RestaurantTable[];
 

@@ -39,6 +39,27 @@ export class BranchResponseDto {
   @ApiProperty({ example: "THB" })
   currency!: string;
 
+  @ApiProperty({
+    example: "https://images.yoonie.si/branches/riverside-logo.webp",
+    required: false,
+  })
+  logoUrl?: string;
+
+  @ApiProperty({
+    example: "https://images.yoonie.si/branches/riverside-hero.webp",
+    required: false,
+  })
+  heroImageUrl?: string;
+
+  @ApiProperty({
+    example: [
+      "https://images.yoonie.si/branches/riverside-pool.webp",
+      "https://images.yoonie.si/branches/riverside-lobby.webp",
+    ],
+    type: [String],
+  })
+  images!: string[];
+
   @ApiProperty({ type: BranchSettingsResponseDto })
   settings!: BranchSettingsResponseDto;
 
