@@ -6,5 +6,19 @@
   "structure": {
     "template": null,
     "db": "mongo"
+  },
+  "deploy": {
+    "github": {
+      "owner": "LynnT-2003",
+      "repo": "yoonie-backend",
+      "url": "https://github.com/LynnT-2003/yoonie-backend",
+      "createdAt": "2026-10-18T07:20:59.592Z"
+    },
+    "vercel": {
+      "projectId": "prj_v9uqcvgxekoaRJgepo8VuPAlmc18",
+      "projectName": "yoonie-backend",
+      "deploymentUrl": "https://yoonie-backend.vercel.app",
+      "createdAt": "2026-10-18T07:21:06.888Z"
+    }
   }
 }

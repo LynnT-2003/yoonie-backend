@@ -1,0 +1,7 @@
+{
+  "tsconfig": "tsconfig.json",
+  "output": "documentation",
+  "name": "Yoonie Backend Documentation",
+  "theme": "material",
+  "hideGenerator": false
+}
