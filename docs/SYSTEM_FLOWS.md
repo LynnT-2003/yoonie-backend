@@ -72,7 +72,70 @@ graph TD
 
 ---
 
-## 3. End-to-End Sequence Diagrams
+## 3. End-to-End Operational Lifecycle
+
+### Master E2E Flow: The Unified Guest & Operations Journey
+This diagram bridges pre-arrival direct booking, overnight dispatch calculation, and back-of-house frontline execution across all 5 operational phases.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Guest
+    participant Web as Guest Web / LINE
+    participant OS as Yoonie OS API
+    participant DB as MongoDB
+    actor Dispatcher as Hotel Dispatcher
+    actor Driver as Van Driver
+    actor Housekeeper as Housekeeper
+
+    %% 1. Pre-Arrival Direct Booking
+    Note over Guest,DB: PHASE 1: Direct Multi-Product Booking (Day T-3)
+    Guest->>Web: Clicks Instagram ad with UTM tracking
+    Web->>OS: GET /rooms, /restaurants, /services
+    Guest->>Web: Adds Deluxe Room (2 nights) + Sunset Cruise + Airport Transfer
+    Web->>OS: POST /inventory/hold (Locks 15m hold)
+    Web->>OS: POST /orders (Attribution: utmSource=instagram, channel=DIRECT_WEB)
+    Web->>OS: POST /orders/:id/confirm (Payment processed)
+    OS->>DB: Atomic transition: slots held to booked, order to CONFIRMED
+
+    %% 2. 05:30 Morning Dispatch
+    Note over OS,Dispatcher: PHASE 2: 05:30 AM Automated Daily Dispatch (Day T)
+    OS->>OS: 05:30 Scheduler evaluates flight landing time and arrivals
+    OS->>DB: Generate HOUSEKEEPING_TURNAROUND (Room 305, ETA 13:20, Score 910)
+    OS->>DB: Generate AIRPORT_PICKUP (Flight QR 836, Marcus Lindqvist)
+    OS->>DB: Generate TOUR_CONSOLIDATION (Sunset Cruise 5/18 pax, 28% load)
+
+    %% 3. Frontline Operations
+    Note over Dispatcher,Housekeeper: PHASE 3: Frontline Execution (Day T Morning)
+    Dispatcher->>OS: GET /dispatch?serviceDate=TODAY
+    Dispatcher->>OS: PATCH /dispatch/:id/assign (Assign driver Somchai)
+    Driver->>Guest: Delivers bilingual pickup card (Door 4, Plate 1กก-8822)
+    Housekeeper->>OS: GET /rooms/housekeeping (Room 305 prioritized)
+    Housekeeper->>OS: PATCH /rooms/:id/cleaning (IN_PROGRESS to CLEAN)
+    OS->>OS: Front desk inspects to INSPECTED
+
+    %% 4. In-Stay & Fulfillment
+    Note over Guest,OS: PHASE 4: Frictionless Arrival and In-Stay Experience (Day T Afternoon)
+    Driver->>OS: PATCH /dispatch/:id/status (Airport pickup DONE)
+    Guest->>Web: Arrives at hotel (Instant key handover, room already inspected)
+    Guest->>Web: Attends Sunset Cruise (Consolidated departure)
+    Guest->>Web: Dines at Riverside Grill (Reservation pre-confirmed)
+
+    %% 5. Checkout & Master CDP
+    Note over Guest,DB: PHASE 5: Post-Stay and Master CDP Update (Day T+2)
+    OS->>DB: Order status to COMPLETED
+    OS->>DB: Update Guest CDP (lifetimeSpendThb, stayCount, recalculate vipScore)
+```
+
+| Phase | Actors Involved | Core Endpoints & Payloads | Business Impact |
+| :--- | :--- | :--- | :--- |
+| **1. Direct Booking** | Guest, Booking Web | `GET /rooms`, `POST /inventory/hold`, `POST /orders`, `POST /orders/:id/confirm` | Locks inventory atomically without double-booking; captures marketing attribution |
+| **2. Overnight Dispatch** | System Cron (`05:30`) | `generateMorningRunSheet()` (Internal engine) | Housekeeping prioritized by arrival ETA; tour occupancy economics evaluated |
+| **3. Frontline Ops** | Dispatcher, Drivers, Housekeeping | `GET /dispatch`, `PATCH /dispatch/:id/assign`, `GET /rooms/housekeeping`, `PATCH /rooms/:id/cleaning` | Zero front-desk bottlenecks; bilingual pickup cards delivered to arriving guests |
+| **4. In-Stay Experience** | Guest, Front Desk, F&B Staff | `PATCH /dispatch/:id/status`, `GET /orders/:id` | Room inspected before arrival; dining and excursions fulfilled from one folio |
+| **5. Post-Stay & CDP** | GM, Marketing System | `PATCH /orders/:id/status`, `GET /users` | Lifetime spend & stay frequency recalculate VIP tiers for future direct marketing |
+
+---
 
 ### Flow 1: Direct Guest Multi-Product Booking Journey
 Guests select a room, dining shift, and airport transfer in one cart. Sellable inventory is held atomically during checkout and converted upon payment confirmation.
