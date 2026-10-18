@@ -156,6 +156,7 @@ async function main() {
 
   /* ---- Branch */
   const branch = await M.branch.create({
+    _id: new Types.ObjectId("665a1b2c3d4e5f6a7b8c9d0e"),
     code: "BKK-RIVERSIDE",
     name: "BKK Riverside Boutique Hotel",
     timezone: "Asia/Bangkok",
