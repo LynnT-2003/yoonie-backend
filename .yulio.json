@@ -1,0 +1,10 @@
+{
+  "version": "1",
+  "name": "yoonie-backend",
+  "role": "backend",
+  "createdAt": "2026-10-18T06:06:18.754Z",
+  "structure": {
+    "template": null,
+    "db": "mongo"
+  }
+}

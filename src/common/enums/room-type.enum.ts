@@ -1,0 +1,5 @@
+export enum RoomTypeCode {
+  STANDARD_KING = "STANDARD_KING",
+  DELUXE_BALCONY = "DELUXE_BALCONY",
+  POOL_VILLA = "POOL_VILLA",
+}

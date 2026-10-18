@@ -1,0 +1,17 @@
+export enum ServiceCategory {
+  TOURS = "TOURS",
+  WELLNESS = "WELLNESS",
+  TRANSPORT = "TRANSPORT",
+}
+
+export enum ServiceKind {
+  AIRPORT_TRANSFER = "AIRPORT_TRANSFER",
+  SCHEDULED_TOUR = "SCHEDULED_TOUR",
+  SPA_TREATMENT = "SPA_TREATMENT",
+}
+
+export enum PricingModel {
+  PER_PAX = "PER_PAX",
+  PER_VEHICLE = "PER_VEHICLE",
+  PER_TREATMENT = "PER_TREATMENT",
+}

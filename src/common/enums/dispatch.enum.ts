@@ -1,0 +1,24 @@
+export enum DispatchType {
+  HOUSEKEEPING_TURNAROUND = "HOUSEKEEPING_TURNAROUND",
+  TOUR_CONSOLIDATION = "TOUR_CONSOLIDATION",
+  AIRPORT_PICKUP = "AIRPORT_PICKUP",
+}
+
+export enum DispatchStatus {
+  OPEN = "OPEN",
+  ACKNOWLEDGED = "ACKNOWLEDGED",
+  IN_PROGRESS = "IN_PROGRESS",
+  DONE = "DONE",
+  DISMISSED = "DISMISSED",
+}
+
+export enum Severity {
+  INFO = "INFO",
+  WARN = "WARN",
+  CRITICAL = "CRITICAL",
+}
+
+export enum MessageChannel {
+  WHATSAPP = "WHATSAPP",
+  LINE = "LINE",
+}
