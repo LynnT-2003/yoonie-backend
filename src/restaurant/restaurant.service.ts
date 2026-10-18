@@ -12,34 +12,11 @@ export class RestaurantService {
     private readonly r2Service: R2Service,
   ) {}
 
-  async create(
-    dto: CreateRestaurantDto,
-    files?: {
-      coverImage?: Express.Multer.File[];
-      images?: Express.Multer.File[];
-    },
-  ): Promise<RestaurantDocument> {
-    let coverImageUrl = dto.coverImage;
-    const imageUrls = [...(dto.images || [])];
-    const folder = `restaurants/${dto.branchId}/${dto.code.toLowerCase()}`;
-
-    if (files?.coverImage && files.coverImage[0]) {
-      const uploadRes = await this.r2Service.uploadFile(
-        files.coverImage[0],
-        folder,
-      );
-      coverImageUrl = uploadRes.url;
-    }
-
-    if (files?.images && files.images.length > 0) {
-      const uploadPromises = files.images.map((file) =>
-        this.r2Service.uploadFile(file, folder),
-      );
-      const results = await Promise.all(uploadPromises);
-      imageUrls.push(...results.map((r) => r.url));
-    }
-
-    const totalSeats = (dto.tables || []).reduce((acc, t) => acc + (t.seats || 0), 0);
+  async create(dto: CreateRestaurantDto): Promise<RestaurantDocument> {
+    const totalSeats = (dto.tables || []).reduce(
+      (acc, t) => acc + (t.seats || 0),
+      0,
+    );
 
     return this.restaurantRepo.create({
       branchId: new Types.ObjectId(dto.branchId),
@@ -51,8 +28,8 @@ export class RestaurantService {
       avgTurnMinutes: dto.avgTurnMinutes || 90,
       tables: (dto.tables || []) as any,
       shifts: (dto.shifts || []) as any,
-      coverImage: coverImageUrl,
-      images: imageUrls,
+      coverImage: dto.coverImage,
+      images: dto.images || [],
       isActive: true,
     });
   }

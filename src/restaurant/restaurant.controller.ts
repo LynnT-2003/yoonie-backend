@@ -67,58 +67,17 @@ export class RestaurantController {
   @Public()
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  @UseInterceptors(
-    FileFieldsInterceptor([
-      { name: "coverImage", maxCount: 1 },
-      { name: "images", maxCount: 10 },
-    ]),
-  )
   @ApiOperation({
-    summary: "Create a restaurant venue (with optional images in one shot)",
-    description:
-      "Creates a new restaurant. Supports both JSON and multipart/form-data with image file uploads.",
-  })
-  @ApiConsumes("multipart/form-data", "application/json")
-  @ApiBody({
-    schema: {
-      type: "object",
-      required: ["branchId", "code", "name"],
-      properties: {
-        branchId: { type: "string", example: "665a1b2c3d4e5f6a7b8c9d0e" },
-        code: { type: "string", example: "RIV-TERRACE" },
-        name: { type: "string", example: "The Riverside Terrace" },
-        cuisine: { type: "string", example: "Modern Thai & Seafood" },
-        description: {
-          type: "string",
-          example: "Al fresco riverside dining with river views",
-        },
-        coverImage: {
-          type: "string",
-          format: "binary",
-          description: "Cover photo file",
-        },
-        images: {
-          type: "array",
-          items: { type: "string", format: "binary" },
-          description: "Gallery photo files",
-        },
-      },
-    },
+    summary: "Create a restaurant venue",
+    description: "Creates a new restaurant with outlet details and image URLs.",
   })
   @ApiResponse({
     status: 201,
     description: "Restaurant created successfully",
     type: RestaurantResponseDto,
   })
-  async create(
-    @Body() dto: CreateRestaurantDto,
-    @UploadedFiles()
-    files?: {
-      coverImage?: Express.Multer.File[];
-      images?: Express.Multer.File[];
-    },
-  ) {
-    return this.restaurantService.create(dto, files);
+  async create(@Body() dto: CreateRestaurantDto) {
+    return this.restaurantService.create(dto);
   }
 
   @Public()

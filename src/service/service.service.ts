@@ -13,35 +13,7 @@ export class ServiceService {
     private readonly r2Service: R2Service,
   ) {}
 
-  async create(
-    dto: CreateServiceDto,
-    files?: {
-      coverImage?: Express.Multer.File[];
-      images?: Express.Multer.File[];
-    },
-  ): Promise<ServiceDocument> {
-    let coverImageUrl = dto.coverImage;
-    const imageUrls = [...(dto.images || [])];
-    const folder = `services/${dto.branchId}/${dto.category.toLowerCase()}`;
-
-    // 1. Upload cover image if provided as file
-    if (files?.coverImage && files.coverImage[0]) {
-      const uploadRes = await this.r2Service.uploadFile(
-        files.coverImage[0],
-        folder,
-      );
-      coverImageUrl = uploadRes.url;
-    }
-
-    // 2. Upload gallery images if provided as files
-    if (files?.images && files.images.length > 0) {
-      const uploadPromises = files.images.map((file) =>
-        this.r2Service.uploadFile(file, folder),
-      );
-      const results = await Promise.all(uploadPromises);
-      imageUrls.push(...results.map((r) => r.url));
-    }
-
+  async create(dto: CreateServiceDto): Promise<ServiceDocument> {
     return this.serviceRepo.create({
       branchId: new Types.ObjectId(dto.branchId),
       code: dto.code,
@@ -49,8 +21,8 @@ export class ServiceService {
       kind: dto.kind,
       name: dto.name,
       description: dto.description,
-      coverImage: coverImageUrl,
-      images: imageUrls,
+      coverImage: dto.coverImage,
+      images: dto.images || [],
       basePriceThb: dto.basePriceThb,
       pricingModel: dto.pricingModel,
       tour: dto.tour as any,

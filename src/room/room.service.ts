@@ -13,35 +13,7 @@ export class RoomService {
     private readonly r2Service: R2Service,
   ) {}
 
-  async create(
-    dto: CreateRoomDto,
-    files?: {
-      coverImage?: Express.Multer.File[];
-      images?: Express.Multer.File[];
-    },
-  ): Promise<RoomDocument> {
-    let coverImageUrl = dto.coverImage;
-    const imageUrls = [...(dto.images || [])];
-    const folder = `rooms/${dto.branchId}/${dto.roomType.toLowerCase()}`;
-
-    // 1. Upload cover image if provided as file
-    if (files?.coverImage && files.coverImage[0]) {
-      const uploadRes = await this.r2Service.uploadFile(
-        files.coverImage[0],
-        folder,
-      );
-      coverImageUrl = uploadRes.url;
-    }
-
-    // 2. Upload gallery images if provided as files
-    if (files?.images && files.images.length > 0) {
-      const uploadPromises = files.images.map((file) =>
-        this.r2Service.uploadFile(file, folder),
-      );
-      const results = await Promise.all(uploadPromises);
-      imageUrls.push(...results.map((r) => r.url));
-    }
-
+  async create(dto: CreateRoomDto): Promise<RoomDocument> {
     return this.roomRepo.create({
       branchId: new Types.ObjectId(dto.branchId),
       roomNumber: dto.roomNumber,
@@ -50,8 +22,8 @@ export class RoomService {
       maxOccupancy: dto.maxOccupancy,
       baseRateThb: dto.baseRateThb,
       amenities: dto.amenities || [],
-      coverImage: coverImageUrl,
-      images: imageUrls,
+      coverImage: dto.coverImage,
+      images: dto.images || [],
       cleaningStatus: CleaningStatus.INSPECTED,
       isActive: true,
     });

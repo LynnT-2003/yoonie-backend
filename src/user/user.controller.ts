@@ -70,11 +70,7 @@ export class UserController {
 
   @Patch("me")
   @HttpCode(HttpStatus.OK)
-  @UseInterceptors(FileInterceptor("avatar"))
-  @ApiOperation({
-    summary: "Update current user profile (with optional avatar file in 1 shot)",
-  })
-  @ApiConsumes("multipart/form-data", "application/json")
+  @ApiOperation({ summary: "Update current user profile" })
   @ApiBody({ type: UpdateUserDto })
   @ApiResponse({
     status: 200,
@@ -82,14 +78,10 @@ export class UserController {
     schema: { example: { ...USER_EXAMPLE, displayName: "Jane Doe" } },
   })
   @ApiResponse({ status: 401, description: "Unauthorized" })
-  async updateMe(
+  updateMe(
     @CurrentUser() user: ICurrentUser,
     @Body() dto: UpdateUserDto,
-    @UploadedFile() avatarFile?: Express.Multer.File,
   ): Promise<IUserPublic> {
-    if (avatarFile) {
-      await this.userService.uploadAvatar(user.userId, avatarFile);
-    }
     return this.userService.updateUser(user.userId, dto);
   }
 

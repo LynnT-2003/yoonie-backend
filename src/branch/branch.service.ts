@@ -28,46 +28,10 @@ export class BranchService {
     return b;
   }
 
-  async create(
-    dto: CreateBranchDto,
-    files?: {
-      logo?: Express.Multer.File[];
-      heroImage?: Express.Multer.File[];
-      images?: Express.Multer.File[];
-    },
-  ): Promise<BranchDocument> {
+  async create(dto: CreateBranchDto): Promise<BranchDocument> {
     const existing = await this.branchRepo.findByCode(dto.code);
     if (existing) {
       throw new ConflictException(`Branch code ${dto.code} already exists`);
-    }
-
-    let logoUrl = dto.logoUrl;
-    let heroImageUrl = dto.heroImageUrl;
-    const imageUrls = [...(dto.images || [])];
-    const folder = `branches/${dto.code.toLowerCase()}`;
-
-    // 1. Upload logo if provided
-    if (files?.logo && files.logo[0]) {
-      const uploadRes = await this.r2Service.uploadFile(files.logo[0], folder);
-      logoUrl = uploadRes.url;
-    }
-
-    // 2. Upload hero image if provided
-    if (files?.heroImage && files.heroImage[0]) {
-      const uploadRes = await this.r2Service.uploadFile(
-        files.heroImage[0],
-        folder,
-      );
-      heroImageUrl = uploadRes.url;
-    }
-
-    // 3. Upload gallery images if provided
-    if (files?.images && files.images.length > 0) {
-      const uploadPromises = files.images.map((file) =>
-        this.r2Service.uploadFile(file, folder),
-      );
-      const results = await Promise.all(uploadPromises);
-      imageUrls.push(...results.map((r) => r.url));
     }
 
     return this.branchRepo.create({
@@ -77,9 +41,9 @@ export class BranchService {
       currency: dto.currency || "THB",
       contactPhoneE164: dto.contactPhoneE164,
       contactEmail: dto.contactEmail,
-      logoUrl,
-      heroImageUrl,
-      images: imageUrls,
+      logoUrl: dto.logoUrl,
+      heroImageUrl: dto.heroImageUrl,
+      images: dto.images || [],
       isActive: true,
     });
   }

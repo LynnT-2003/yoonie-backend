@@ -182,47 +182,84 @@ The following models support image storage:
 
 ---
 
-## 6. One-Call Endpoints Reference
+## 6. Endpoints & Architecture Reference
 
-Every domain collection in Yoonie supports **1-call operations** for creating entities with images attached, adding images to existing entities, and removing images. Both `application/json` (with image URLs) and `multipart/form-data` (with binary file uploads) are supported.
+The API follows the standard industry pattern (used by Airbnb, Stripe, and Shopify):
+1. **Entity CRUD endpoints** (`POST /api/branches`, `POST /api/rooms`, etc.) accept **pure JSON** (`application/json`).
+2. **File upload endpoints** handle binary images independently and return CDN URLs.
+3. **Dedicated photo gallery endpoints** allow appending photos directly to an existing entity without re-sending the whole document.
 
-### 6.1 Rooms (`/api/rooms`)
-* **Create with Images (1 call)**: `POST /api/rooms`
-  * Form fields: `branchId`, `roomNumber`, `floor`, `roomType`, `maxOccupancy`, `baseRateThb`, `amenities`
-  * File fields: `coverImage` (single file), `images` (up to 10 files)
-* **Upload & Attach Photos (1 call)**: `POST /api/rooms/:id/images?isCover=false`
-  * File field: `images` (up to 10 files)
-* **Remove Photo**: `DELETE /api/rooms/:id/images?imageUrl=...`
+### 6.1 Creating Entities (Pure JSON)
 
-### 6.2 Restaurants & Venues (`/api/restaurants`)
-* **Create with Images (1 call)**: `POST /api/restaurants`
-  * Form fields: `branchId`, `code`, `name`, `cuisine`, `description`, `tables`, `shifts`
-  * File fields: `coverImage` (single file), `images` (up to 10 files)
-* **Upload & Attach Photos (1 call)**: `POST /api/restaurants/:id/images?isCover=false`
-  * File field: `images` (up to 10 files)
-* **Remove Photo**: `DELETE /api/restaurants/:id/images?imageUrl=...`
+* **Create Branch**: `POST /api/branches`
+  ```json
+  {
+    "code": "CNX-MOUNTAIN",
+    "name": "Chiang Mai Mountain Sanctuary",
+    "timezone": "Asia/Bangkok",
+    "currency": "THB",
+    "logoUrl": "https://images.yoonie.si/branches/cnx-logo.webp",
+    "heroImageUrl": "https://images.yoonie.si/branches/cnx-hero.webp",
+    "images": ["https://images.yoonie.si/branches/cnx-1.webp"]
+  }
+  ```
 
-### 6.3 Services, Tours & Spas (`/api/services`)
-* **Create with Images (1 call)**: `POST /api/services`
-  * Form fields: `branchId`, `code`, `category`, `kind`, `name`, `description`, `basePriceThb`, `pricingModel`, `tour`, `wellness`, `transfer`
-  * File fields: `coverImage` (single file), `images` (up to 10 files)
-* **Upload & Attach Photos (1 call)**: `POST /api/services/:id/images?isCover=false`
-  * File field: `images` (up to 10 files)
-* **Remove Photo**: `DELETE /api/services/:id/images?imageUrl=...`
+* **Create Room**: `POST /api/rooms`
+  ```json
+  {
+    "branchId": "665a1b2c3d4e5f6a7b8c9d0e",
+    "roomNumber": "101",
+    "floor": 1,
+    "roomType": "STANDARD_KING",
+    "maxOccupancy": 2,
+    "baseRateThb": 2200,
+    "amenities": ["King Bed", "Smart TV"],
+    "coverImage": "https://images.yoonie.si/rooms/101-cover.webp",
+    "images": ["https://images.yoonie.si/rooms/101-1.webp"]
+  }
+  ```
 
-### 6.4 Branches & Hotel Properties (`/api/branches`)
-* **Create with Logo & Images (1 call)**: `POST /api/branches`
-  * Form fields: `code`, `name`, `timezone`, `currency`, `contactPhoneE164`, `contactEmail`
-  * File fields: `logo` (single file), `heroImage` (single file), `images` (up to 10 files)
-* **Upload & Attach Photos (1 call)**: `POST /api/branches/:idOrCode/images?isHero=false`
-  * File field: `images` (up to 10 files)
-* **Upload Brand Logo (1 call)**: `POST /api/branches/:idOrCode/logo`
-  * File field: `file` (single image)
-* **Remove Photo**: `DELETE /api/branches/:idOrCode/images?imageUrl=...`
+* **Create Restaurant**: `POST /api/restaurants`
+  ```json
+  {
+    "branchId": "665a1b2c3d4e5f6a7b8c9d0e",
+    "code": "RIV-TERRACE",
+    "name": "The Riverside Terrace",
+    "cuisine": "Modern Thai & Seafood",
+    "coverImage": "https://images.yoonie.si/restaurants/terrace.webp"
+  }
+  ```
 
-### 6.5 User Profile Avatar (`/api/users`)
-* **Update Avatar (1 call)**: `POST /api/users/me/avatar`
-  * File field: `file` (single image)
-* **Update Profile with Avatar (1 call)**: `PATCH /api/users/me`
-  * Form field: `displayName`
-  * File field: `avatar` (single image)
+* **Create Service / Tour**: `POST /api/services`
+  ```json
+  {
+    "branchId": "665a1b2c3d4e5f6a7b8c9d0e",
+    "code": "LONGTAIL-CANAL-TOUR",
+    "category": "TOURS",
+    "kind": "SCHEDULED_TOUR",
+    "name": "Private Longtail Boat Canal Tour",
+    "basePriceThb": 2500,
+    "pricingModel": "PER_PAX",
+    "coverImage": "https://images.yoonie.si/services/longtail.webp"
+  }
+  ```
+
+---
+
+### 6.2 Image Upload & Gallery Endpoints (Binary Files)
+
+* **Direct R2 Storage Upload**: `POST /api/storage/upload?folder=rooms|restaurants|services|branches|avatars`
+  * Accepts binary image file (`multipart/form-data`)
+  * Returns `{ "url": "https://...", "key": "..." }`
+* **Presigned URL Generator**: `POST /api/storage/presigned-url`
+  * Returns `{ "uploadUrl": "...", "publicUrl": "..." }`
+* **Add Photos to Existing Room**: `POST /api/rooms/:id/images?isCover=false`
+* **Remove Photo from Room**: `DELETE /api/rooms/:id/images?imageUrl=...`
+* **Add Photos to Existing Restaurant**: `POST /api/restaurants/:id/images?isCover=false`
+* **Remove Photo from Restaurant**: `DELETE /api/restaurants/:id/images?imageUrl=...`
+* **Add Photos to Existing Service**: `POST /api/services/:id/images?isCover=false`
+* **Remove Photo from Service**: `DELETE /api/services/:id/images?imageUrl=...`
+* **Add Photos to Existing Branch**: `POST /api/branches/:idOrCode/images?isHero=false`
+* **Update Branch Logo**: `POST /api/branches/:idOrCode/logo`
+* **Remove Photo from Branch**: `DELETE /api/branches/:idOrCode/images?imageUrl=...`
+* **Upload User Avatar**: `POST /api/users/me/avatar`

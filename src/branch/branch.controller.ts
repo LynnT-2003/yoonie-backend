@@ -64,63 +64,17 @@ export class BranchController {
   @Public()
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  @UseInterceptors(
-    FileFieldsInterceptor([
-      { name: "logo", maxCount: 1 },
-      { name: "heroImage", maxCount: 1 },
-      { name: "images", maxCount: 10 },
-    ]),
-  )
   @ApiOperation({
-    summary: "Create a new branch property (with optional logo & photos in one shot)",
-    description:
-      "Creates a new branch property. Supports both JSON and multipart/form-data with binary file uploads for logo, heroImage, and gallery images.",
-  })
-  @ApiConsumes("multipart/form-data", "application/json")
-  @ApiBody({
-    schema: {
-      type: "object",
-      required: ["code", "name"],
-      properties: {
-        code: { type: "string", example: "CNX-MOUNTAIN" },
-        name: { type: "string", example: "Chiang Mai Mountain Sanctuary" },
-        timezone: { type: "string", example: "Asia/Bangkok", default: "Asia/Bangkok" },
-        currency: { type: "string", example: "THB", default: "THB" },
-        contactPhoneE164: { type: "string", example: "+6653112233" },
-        contactEmail: { type: "string", example: "stay@cnx-sanctuary.example" },
-        logo: {
-          type: "string",
-          format: "binary",
-          description: "Branch brand logo file",
-        },
-        heroImage: {
-          type: "string",
-          format: "binary",
-          description: "Main hero banner image file",
-        },
-        images: {
-          type: "array",
-          items: { type: "string", format: "binary" },
-          description: "Gallery photos to upload",
-        },
-      },
-    },
+    summary: "Create a new branch property",
+    description: "Creates a new branch property with property details and image URLs.",
   })
   @ApiResponse({
     status: 201,
     description: "Branch created",
     type: BranchResponseDto,
   })
-  async create(
-    @Body() dto: CreateBranchDto,
-    @UploadedFiles()
-    files?: {
-      logo?: Express.Multer.File[];
-      heroImage?: Express.Multer.File[];
-      images?: Express.Multer.File[];
-    },
-  ) {
-    return this.branchService.create(dto, files);
+  async create(@Body() dto: CreateBranchDto) {
+    return this.branchService.create(dto);
   }
 
   @Public()
