@@ -109,6 +109,20 @@ export class ServiceResponseDto {
   })
   description?: string;
 
+  @ApiPropertyOptional({
+    example: "https://images.yoonie.si/services/sunset-cruise-cover.webp",
+  })
+  coverImage?: string;
+
+  @ApiProperty({
+    example: [
+      "https://images.yoonie.si/services/sunset-cruise-1.webp",
+      "https://images.yoonie.si/services/sunset-cruise-2.webp",
+    ],
+    type: [String],
+  })
+  images!: string[];
+
   @ApiProperty({ example: 2500 })
   basePriceThb!: number;
 

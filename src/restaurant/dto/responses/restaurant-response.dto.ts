@@ -56,6 +56,20 @@ export class RestaurantResponseDto {
   @ApiPropertyOptional({ example: "Contemporary Thai Seafood & Grill" })
   cuisine?: string;
 
+  @ApiPropertyOptional({
+    example: "https://images.yoonie.si/restaurants/grill-cover.webp",
+  })
+  coverImage?: string;
+
+  @ApiProperty({
+    example: [
+      "https://images.yoonie.si/restaurants/grill-1.webp",
+      "https://images.yoonie.si/restaurants/grill-2.webp",
+    ],
+    type: [String],
+  })
+  images!: string[];
+
   @ApiProperty({ type: [RestaurantTableResponseDto] })
   tables!: RestaurantTableResponseDto[];
 

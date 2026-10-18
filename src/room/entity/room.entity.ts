@@ -81,6 +81,12 @@ export class Room {
   @Prop({ type: [String], default: [] })
   amenities!: string[];
 
+  @Prop({ type: String })
+  coverImage?: string;
+
+  @Prop({ type: [String], default: [] })
+  images!: string[];
+
   @Prop({
     type: String,
     enum: Object.values(CleaningStatus),
