@@ -171,6 +171,13 @@ async function main() {
     },
     contactPhoneE164: "+6620001234",
     contactEmail: "stay@riverside-bkk.example",
+    logoUrl: "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=200",
+    heroImageUrl: "https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?w=1600",
+    images: [
+      "https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?w=1200",
+      "https://images.unsplash.com/photo-1571896349842-33c89424de2d?w=1200",
+      "https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=1200",
+    ],
     settings: { holdTtlMinutes: 15, consolidationThreshold: 0.4 },
   });
   BRANCH = branch._id;
@@ -312,6 +319,12 @@ async function main() {
       cap: 2,
       rate: 2200,
       amenities: ["KING_BED", "RIVER_VIEW_PARTIAL", "WIFI"],
+      coverImage: "https://images.unsplash.com/photo-1590490360182-c33d57733427?w=1000",
+      images: [
+        "https://images.unsplash.com/photo-1590490360182-c33d57733427?w=1200",
+        "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=1200",
+        "https://images.unsplash.com/photo-1618773928121-c32242e63f39?w=1200",
+      ],
     },
     {
       code: RoomTypeCode.DELUXE_BALCONY,
@@ -319,6 +332,12 @@ async function main() {
       cap: 3,
       rate: 3800,
       amenities: ["KING_BED", "SOFA_BED", "PRIVATE_BALCONY", "BATHTUB", "WIFI"],
+      coverImage: "https://images.unsplash.com/photo-1566665797739-1674de7a421a?w=1000",
+      images: [
+        "https://images.unsplash.com/photo-1566665797739-1674de7a421a?w=1200",
+        "https://images.unsplash.com/photo-1591088398332-8a7791972843?w=1200",
+        "https://images.unsplash.com/photo-1578683010236-d716f9a3f461?w=1200",
+      ],
     },
     {
       code: RoomTypeCode.POOL_VILLA,
@@ -331,6 +350,12 @@ async function main() {
         "PRIVATE_POOL",
         "KITCHENETTE",
         "WIFI",
+      ],
+      coverImage: "https://images.unsplash.com/photo-1580587771525-78b9dba3b914?w=1000",
+      images: [
+        "https://images.unsplash.com/photo-1580587771525-78b9dba3b914?w=1200",
+        "https://images.unsplash.com/photo-1613490493576-7fde63acd811?w=1200",
+        "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=1200",
       ],
     },
   ];
@@ -355,6 +380,8 @@ async function main() {
         maxOccupancy: t.cap,
         baseRateThb: t.rate,
         amenities: t.amenities,
+        coverImage: t.coverImage,
+        images: t.images,
         cleaningStatus: CleaningStatus.INSPECTED,
       })) as HydratedDocument<Room>;
     }
@@ -369,6 +396,11 @@ async function main() {
     code: "RIVERSIDE-CAFE",
     name: "Riverside Cafe",
     cuisine: "Thai & international",
+    coverImage: "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1000",
+    images: [
+      "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1200",
+      "https://images.unsplash.com/photo-1550966871-3ed3cdb5ed0c?w=1200",
+    ],
     maxSeats: 48,
     avgTurnMinutes: 75,
     tables: Array.from({ length: 12 }, (_, i) => ({
@@ -399,6 +431,11 @@ async function main() {
     code: "SUNSET-DECK-BAR",
     name: "Sunset Deck Bar",
     cuisine: "Cocktails & small plates",
+    coverImage: "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=1000",
+    images: [
+      "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=1200",
+      "https://images.unsplash.com/photo-1572116469696-31de0f17cc34?w=1200",
+    ],
     maxSeats: 24,
     avgTurnMinutes: 90,
     tables: Array.from({ length: 8 }, (_, i) => ({
@@ -425,6 +462,8 @@ async function main() {
     category: ServiceCategory.TRANSPORT,
     kind: ServiceKind.AIRPORT_TRANSFER,
     name: "Airport Transfer, Suvarnabhumi (BKK)",
+    coverImage: "https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?w=1000",
+    images: ["https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?w=1200"],
     basePriceThb: 1200,
     pricingModel: PricingModel.PER_VEHICLE,
     transfer: {
@@ -455,6 +494,8 @@ async function main() {
     category: ServiceCategory.TOURS,
     kind: ServiceKind.SCHEDULED_TOUR,
     name: "Chao Phraya Sunset Cruise",
+    coverImage: "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=1000",
+    images: ["https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=1200"],
     basePriceThb: 1800,
     pricingModel: PricingModel.PER_PAX,
     tour: {
@@ -473,6 +514,8 @@ async function main() {
     category: ServiceCategory.WELLNESS,
     kind: ServiceKind.SPA_TREATMENT,
     name: "Thai Herbal Massage (60 min)",
+    coverImage: "https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=1000",
+    images: ["https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=1200"],
     basePriceThb: 1100,
     pricingModel: PricingModel.PER_TREATMENT,
     wellness: {
@@ -490,6 +533,8 @@ async function main() {
     category: ServiceCategory.TOURS,
     kind: ServiceKind.SCHEDULED_TOUR,
     name: "Ayutthaya Temples Day Tour",
+    coverImage: "https://images.unsplash.com/photo-1528181304800-259b08848526?w=1000",
+    images: ["https://images.unsplash.com/photo-1528181304800-259b08848526?w=1200"],
     basePriceThb: 2400,
     pricingModel: PricingModel.PER_PAX,
     tour: {
