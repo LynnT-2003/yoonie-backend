@@ -2,6 +2,7 @@
 /dist
 /node_modules
 /build
+/documentation
 *.tsbuildinfo
 
 # Logs
@@ -58,3 +59,5 @@ report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 
 # Prisma generated client (present when scaffolded with --db postgres)
 /src/generated/prisma
+
+documentation

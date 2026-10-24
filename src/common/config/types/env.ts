@@ -1,3 +1,8 @@
+export type DatabaseConfig = {
+  uri?: string;
+  url?: string;
+};
+
 import { CorsOptions } from "@nestjs/common/interfaces/external/cors-options.interface";
 
 export type AppEnvironment = "Development" | "Staging" | "Production";
@@ -25,14 +30,18 @@ export type ServerConfig = {
   frontendOauthCallbackUrl: string;
 };
 
-export type DatabaseConfig = {
-  uri?: string;
-  url?: string;
+export type StaffOpsConfig = {
+  workerEnabled: boolean;
+  internalTickSecret?: string;
+  lineChannelAccessToken?: string;
+  lineMessagingChannelSecret?: string;
+  expoAccessToken?: string;
 };
 
 export type EnvironmentConfigs = {
   appConfig: AppConfig;
   serverConfig: ServerConfig;
   databaseConfig: DatabaseConfig;
+  staffOpsConfig: StaffOpsConfig;
   corsConfig: CorsOptions;
 };

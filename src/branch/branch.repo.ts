@@ -27,4 +27,36 @@ export class BranchRepo {
     const filter = activeOnly ? { isActive: true } : {};
     return this.branchModel.find(filter).exec();
   }
+
+  async addImages(
+    id: string | Types.ObjectId,
+    images: string[],
+    heroImageUrl?: string,
+  ): Promise<BranchDocument | null> {
+    const update: Record<string, unknown> = {
+      $push: { images: { $each: images } },
+    };
+    if (heroImageUrl) {
+      update.heroImageUrl = heroImageUrl;
+    }
+    return this.branchModel.findByIdAndUpdate(id, update, { new: true }).exec();
+  }
+
+  async removeImage(
+    id: string | Types.ObjectId,
+    imageUrl: string,
+  ): Promise<BranchDocument | null> {
+    return this.branchModel
+      .findByIdAndUpdate(id, { $pull: { images: imageUrl } }, { new: true })
+      .exec();
+  }
+
+  async updateLogo(
+    id: string | Types.ObjectId,
+    logoUrl: string,
+  ): Promise<BranchDocument | null> {
+    return this.branchModel
+      .findByIdAndUpdate(id, { logoUrl }, { new: true })
+      .exec();
+  }
 }

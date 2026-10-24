@@ -1,8 +1,9 @@
 import { Injectable } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
-import { Model, QueryFilter, UpdateQuery } from "mongoose";
+import { Model, QueryFilter, Types, UpdateQuery } from "mongoose";
 import { User, UserDocument } from "./entity/user.entity";
 import { UserRole } from "../common/enums/user-role.enum";
+import { Permission } from "../common/enums/permission.enum";
 import {
   IOAuthProvider,
   IRefreshToken,
@@ -25,6 +26,21 @@ type UserPersistenceObject = {
   displayName: string;
   avatar?: string | null;
   role: UserRole;
+  branchIds?: unknown[];
+  permissions?: Permission[];
+  jobTitle?: string | null;
+  isPlatformAdmin?: boolean;
+  mustChangePassword?: boolean;
+  lineUserId?: string | null;
+  phoneE164?: string | null;
+  notificationPrefs?: {
+    enabledChannels: string[];
+    quietHours: {
+      enabled: boolean;
+      start: string;
+      end: string;
+    };
+  };
   providers?: IOAuthProvider[];
   refreshTokens?: IRefreshToken[];
   isEmailVerified?: boolean;
@@ -60,6 +76,14 @@ export class UserRepo {
       displayName: obj.displayName,
       avatar: obj.avatar ?? null,
       role: obj.role,
+      branchIds: (obj.branchIds ?? []).map((id) => String(id)),
+      permissions: obj.permissions ?? [],
+      jobTitle: obj.jobTitle ?? null,
+      isPlatformAdmin: !!obj.isPlatformAdmin,
+      mustChangePassword: !!obj.mustChangePassword,
+      lineUserId: obj.lineUserId ?? null,
+      phoneE164: obj.phoneE164 ?? null,
+      notificationPrefs: obj.notificationPrefs,
       providers: (obj.providers ?? []).map((provider) => ({
         provider: provider.provider,
         providerId: provider.providerId,
@@ -67,11 +91,14 @@ export class UserRepo {
         connectedAt: provider.connectedAt,
       })),
       refreshTokens: (obj.refreshTokens ?? []).map((token) => {
-        const tokenWithId = token as IRefreshToken & { _id?: unknown };
+        const tokenWithId = token as IRefreshToken & {
+          _id?: Types.ObjectId | string;
+        };
 
         return {
           id:
-            token.id ?? (tokenWithId._id ? String(tokenWithId._id) : undefined),
+            token.id ??
+            (tokenWithId._id ? tokenWithId._id.toString() : undefined),
           token: token.token,
           createdAt: token.createdAt,
           expiresAt: token.expiresAt,
@@ -449,6 +476,53 @@ export class UserRepo {
               isSuspended: suspended,
               suspensionReason: suspended ? reason : null,
               suspendedAt: suspended ? new Date() : null,
+            },
+          },
+          { new: true },
+        )
+        .exec(),
+    );
+  }
+
+  async saveLineLinkToken(
+    id: string,
+    hashedToken: string,
+    expiresAt: Date,
+  ): Promise<void> {
+    await this.userModel
+      .updateOne(
+        { _id: id },
+        {
+          $set: {
+            lineLinkToken: hashedToken,
+            lineLinkExpiresAt: expiresAt,
+          },
+        },
+      )
+      .exec();
+  }
+
+  async linkLineUserByToken(
+    hashedToken: string,
+    lineUserId: string,
+  ): Promise<IUser | null> {
+    // Check if lineUserId is already linked to another user
+    await this.userModel
+      .updateMany({ lineUserId }, { $set: { lineUserId: null } })
+      .exec();
+
+    return this.toUser(
+      await this.userModel
+        .findOneAndUpdate(
+          {
+            lineLinkToken: hashedToken,
+            lineLinkExpiresAt: { $gt: new Date() },
+          },
+          {
+            $set: {
+              lineUserId,
+              lineLinkToken: null,
+              lineLinkExpiresAt: null,
             },
           },
           { new: true },

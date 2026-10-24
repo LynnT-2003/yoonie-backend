@@ -3,6 +3,7 @@ import { Document, Types } from "mongoose";
 import { OAuthProviderType } from "../../common/enums/oauth-provider.enum";
 import { UserRole } from "../../common/enums/user-role.enum";
 import { PaymentPlanId } from "../../common/enums/payment-plan.enum";
+import { Permission } from "../../common/enums/permission.enum";
 
 // ─── Subdocument: OAuthProvider ───────────────────────────────────────────────
 
@@ -47,6 +48,45 @@ export const RefreshTokenSchema = SchemaFactory.createForClass(RefreshToken);
 
 // ─── Main Entity: User ─────────────────────────────────────────────────────────
 
+/**
+ * User Document Schema Example (Guest CDP Profile & Staff Member):
+ * -------------------------------------------------------------
+ * {
+ *   "_id": ObjectId("665a1b2c3d4e5f6a7b8c9d0a"),
+ *   "email": "sarah.jenkins@example.com",
+ *   "password": "$2b$10$hashedpassword...",
+ *   "displayName": "Sarah Jenkins",
+ *   "avatar": "https://cdn.example.com/avatars/sarah.jpg",
+ *   "role": "GUEST",
+ *   "providers": [
+ *     {
+ *       "provider": "GOOGLE",
+ *       "providerId": "google_1234567890"
+ *     }
+ *   ],
+ *   "phoneE164": "+66812345678",
+ *   "lineUserId": "U1234567890abcdef",
+ *   "whatsappOptIn": true,
+ *   "preferredLanguage": "en",
+ *   "nationalityCode": "GB",
+ *   "branchIds": [
+ *     ObjectId("665a1b2c3d4e5f6a7b8c9d0e")
+ *   ],
+ *   "jobTitle": null,
+ *   "stats": {
+ *     "lifetimeSpendThb": 54200,
+ *     "stayCount": 4,
+ *     "orderCount": 6,
+ *     "lastStayAt": ISODate("2026-10-18T00:00:00.000Z")
+ *   },
+ *   "vipScore": 85,
+ *   "isActive": true,
+ *   "isEmailVerified": true,
+ *   "createdAt": ISODate("2026-01-15T10:00:00.000Z"),
+ *   "updatedAt": ISODate("2026-10-18T00:00:00.000Z")
+ * }
+ * -------------------------------------------------------------
+ */
 @Schema({
   timestamps: true, // auto createdAt + updatedAt
   collection: "users",
@@ -59,8 +99,6 @@ export class User {
     type: String,
     lowercase: true,
     trim: true,
-    sparse: true, // unique but allows multiple nulls (OAuth-only users)
-    unique: true,
     default: null,
   })
   email: string | null;
@@ -85,7 +123,7 @@ export class User {
   @Prop({
     type: String,
     enum: UserRole,
-    default: UserRole.USER,
+    default: UserRole.GUEST,
   })
   role: UserRole;
 
@@ -117,6 +155,94 @@ export class User {
   @Prop({ type: Date, default: null })
   passwordResetExpiresAt: Date | null;
 
+  // ─── Hospitality / Guest CDP & Staff Extensions ─────────────────────────
+
+  @Prop({ type: String, trim: true, default: null })
+  phoneE164: string | null;
+
+  @Prop({ type: String, trim: true, default: null })
+  lineUserId: string | null;
+
+  @Prop({ type: String, default: null, select: false })
+  lineLinkToken: string | null;
+
+  @Prop({ type: Date, default: null })
+  lineLinkExpiresAt: Date | null;
+
+  @Prop({ type: Boolean, default: false })
+  whatsappOptIn: boolean;
+
+  @Prop({ type: String, enum: ["en", "th"], default: "en" })
+  preferredLanguage: "en" | "th";
+
+  @Prop({ type: String, default: null })
+  nationalityCode: string | null;
+
+  @Prop({ type: [{ type: Types.ObjectId, ref: "Branch" }], default: [] })
+  branchIds: Types.ObjectId[];
+
+  @Prop({ type: String, default: null })
+  jobTitle: string | null;
+
+  @Prop({ type: [String], enum: Object.values(Permission), default: [] })
+  permissions: Permission[];
+
+  @Prop({ type: Boolean, default: false })
+  isPlatformAdmin: boolean;
+
+  @Prop({ type: Boolean, default: false })
+  mustChangePassword: boolean;
+
+  @Prop({
+    type: {
+      enabledChannels: { type: [String], default: ["inbox", "push"] },
+      quietHours: {
+        enabled: { type: Boolean, default: false },
+        start: { type: String, default: "22:00" },
+        end: { type: String, default: "07:00" },
+      },
+    },
+    default: () => ({
+      enabledChannels: ["inbox", "push"],
+      quietHours: { enabled: false, start: "22:00", end: "07:00" },
+    }),
+  })
+  notificationPrefs: {
+    enabledChannels: string[];
+    quietHours: {
+      enabled: boolean;
+      start: string;
+      end: string;
+    };
+  };
+
+  @Prop({
+    type: {
+      lifetimeSpendThb: { type: Number, default: 0 },
+      stayCount: { type: Number, default: 0 },
+      orderCount: { type: Number, default: 0 },
+      lastStayAt: { type: Date, default: null },
+    },
+    default: () => ({
+      lifetimeSpendThb: 0,
+      stayCount: 0,
+      orderCount: 0,
+      lastStayAt: null,
+    }),
+  })
+  stats: {
+    lifetimeSpendThb: number;
+    stayCount: number;
+    orderCount: number;
+    lastStayAt: Date | null;
+  };
+
+  @Prop({ type: Number, default: 0, min: 0, max: 100 })
+  vipScore: number;
+
+  @Prop({ type: Boolean, default: true })
+  isActive: boolean;
+
   // ─── Admin module stubs ────────────────────────────────────────────────────
   // These fields are inactive without the admin module. Run `yulio add admin`
   // to enable moderation, suspension enforcement, and role management.
@@ -147,6 +273,27 @@ export class User {
 
 export const UserSchema = SchemaFactory.createForClass(User);
 
+export const computeVipScore = (stats?: {
+  lifetimeSpendThb?: number;
+  stayCount?: number;
+}): number =>
+  Math.min(
+    100,
+    Math.min(60, Math.floor(((stats && stats.lifetimeSpendThb) || 0) / 1000)) +
+      Math.min(40, ((stats && stats.stayCount) || 0) * 8),
+  );
+
+UserSchema.virtual("vipTier").get(function (this: UserDocument) {
+  const s = this.vipScore || 0;
+  return s >= 80 ? "PLATINUM" : s >= 50 ? "GOLD" : s >= 20 ? "SILVER" : "NONE";
+});
+
+UserSchema.pre("save", function (this: UserDocument) {
+  if (this.isModified("stats")) {
+    this.vipScore = computeVipScore(this.stats);
+  }
+});
+
 // ─── Document Type ─────────────────────────────────────────────────────────────
 
 // UserDocument is what Mongoose actually returns from queries.
@@ -158,5 +305,29 @@ export type UserDocument = User & Document;
 // Compound index: quickly find a user by a specific OAuth provider + providerId.
 // Used in findOrCreateOAuthUser() in user.service.ts.
 UserSchema.index({ "providers.provider": 1, "providers.providerId": 1 });
+// partial filter, not sparse: email defaults to explicit null (not absent),
+// and a sparse index only exempts absent fields, so two nulls would still collide
+UserSchema.index(
+  { email: 1 },
+  { unique: true, partialFilterExpression: { email: { $type: "string" } } },
+);
+UserSchema.index(
+  { phoneE164: 1 },
+  { unique: true, partialFilterExpression: { phoneE164: { $type: "string" } } },
+);
+UserSchema.index(
+  { lineUserId: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { lineUserId: { $type: "string" } },
+  },
+);
+UserSchema.index(
+  { lineLinkToken: 1 },
+  {
+    partialFilterExpression: { lineLinkToken: { $type: "string" } },
+  },
+);
+UserSchema.index({ role: 1, vipScore: -1 });
 // Admin module stub index — inactive until `yulio add admin` is installed.
 UserSchema.index({ isSuspended: 1, createdAt: -1 });
