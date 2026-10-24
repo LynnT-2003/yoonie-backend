@@ -1,3 +1,5 @@
+import { Notification, NotificationSchema } from "../notifications/entity/notification.entity";
+import { User, UserSchema } from "../user/entity/user.entity";
 import { Module } from "@nestjs/common";
 import { MongooseModule } from "@nestjs/mongoose";
 
@@ -23,6 +25,8 @@ import { UserModule } from "../user/user.module";
       { name: OperationalDispatch.name, schema: OperationalDispatchSchema },
       { name: Room.name, schema: RoomSchema },
       { name: Branch.name, schema: BranchSchema },
+      { name: User.name, schema: UserSchema },
+      { name: Notification.name, schema: NotificationSchema },
     ]),
     UserModule,
   ],
