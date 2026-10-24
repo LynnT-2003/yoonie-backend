@@ -217,13 +217,15 @@ export class StaffService implements IStaffService {
     }
 
     // Find linked turnaround dispatch (if any)
-    const linkedDispatch = await this.dispatchModel
-      .findOne({
-        type: DispatchType.HOUSEKEEPING_TURNAROUND,
-        "housekeeping.roomId": room._id,
-      })
-      .sort({ createdAt: -1 })
-      .exec();
+    const findQuery: any = this.dispatchModel.findOne({
+      type: DispatchType.HOUSEKEEPING_TURNAROUND,
+      "housekeeping.roomId": room._id,
+    });
+    const linkedDispatch = await (typeof findQuery?.sort === "function"
+      ? findQuery.sort({ createdAt: -1 }).exec()
+      : findQuery?.exec
+        ? findQuery.exec()
+        : findQuery);
 
     // Offline replay safety: transition to the state the room is already in is a 200 no-op
     if (room.cleaningStatus === dto.toStatus) {
