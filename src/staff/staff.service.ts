@@ -1,8 +1,14 @@
+import { User, UserDocument } from "../user/entity/user.entity";
+import { Notification, NotificationDocument } from "../notifications/entity/notification.entity";
+import { NotificationType } from "../notifications/enums/notification-type.enum";
+import { NotificationSeverity } from "../notifications/enums/notification-severity.enum";
+import { NotificationStatus } from "../notifications/enums/notification-status.enum";
 import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
+  Optional,
   Logger,
   NotFoundException,
   UnauthorizedException,
@@ -53,6 +59,12 @@ export class StaffService implements IStaffService {
     private readonly configService: ConfigService,
     @InjectConnection()
     private readonly connection: Connection,
+    @Optional()
+    @InjectModel(User.name)
+    private readonly userModel?: Model<UserDocument>,
+    @Optional()
+    @InjectModel(Notification.name)
+    private readonly notificationModel?: Model<NotificationDocument>,
     private readonly auditService?: AuditService,
   ) {}
 
@@ -75,7 +87,7 @@ export class StaffService implements IStaffService {
     const housekeepingQuery: Record<string, any> = {
       assigneeUserId: userObjectId,
       type: DispatchType.HOUSEKEEPING_TURNAROUND,
-      status: { $in: [DispatchStatus.OPEN, DispatchStatus.IN_PROGRESS] },
+      status: { $in: [DispatchStatus.OPEN, DispatchStatus.ACKNOWLEDGED, DispatchStatus.IN_PROGRESS] },
     };
     if (!currentUser.isPlatformAdmin) {
       housekeepingQuery.branchId = { $in: branchObjectIds };
@@ -140,7 +152,7 @@ export class StaffService implements IStaffService {
       assigneeUserId: userObjectId,
       type: DispatchType.AIRPORT_PICKUP,
       serviceDate: todayBranchDate,
-      status: { $in: [DispatchStatus.OPEN, DispatchStatus.IN_PROGRESS] },
+      status: { $in: [DispatchStatus.OPEN, DispatchStatus.ACKNOWLEDGED, DispatchStatus.IN_PROGRESS] },
     };
     if (!currentUser.isPlatformAdmin) {
       pickupQuery.branchId = { $in: branchObjectIds };
@@ -205,13 +217,15 @@ export class StaffService implements IStaffService {
     }
 
     // Find linked turnaround dispatch (if any)
-    const linkedDispatch = await this.dispatchModel
-      .findOne({
-        type: DispatchType.HOUSEKEEPING_TURNAROUND,
-        "housekeeping.roomId": room._id,
-        status: { $in: [DispatchStatus.OPEN, DispatchStatus.IN_PROGRESS] },
-      })
-      .exec();
+    const findQuery: any = this.dispatchModel.findOne({
+      type: DispatchType.HOUSEKEEPING_TURNAROUND,
+      "housekeeping.roomId": room._id,
+    });
+    const linkedDispatch = await (typeof findQuery?.sort === "function"
+      ? findQuery.sort({ createdAt: -1 }).exec()
+      : findQuery?.exec
+        ? findQuery.exec()
+        : findQuery);
 
     // Offline replay safety: transition to the state the room is already in is a 200 no-op
     if (room.cleaningStatus === dto.toStatus) {
@@ -324,12 +338,83 @@ export class StaffService implements IStaffService {
         linkedDispatch.status = targetDispatchStatus;
         if (targetDispatchStatus === DispatchStatus.DONE) {
           linkedDispatch.completedAt = new Date();
+        } else if (targetDispatchStatus === DispatchStatus.OPEN) {
+          linkedDispatch.completedAt = null as any;
+          let bTz = "Asia/Bangkok";
+          const bDoc = await this.branchModel.findById(room.branchId).lean().exec();
+          if (bDoc?.timezone) bTz = bDoc.timezone;
+          linkedDispatch.serviceDate = toBranchBusinessDate(new Date(), bTz);
         }
         await linkedDispatch.save({ session: session || undefined });
       }
 
       if (session) {
         await session.commitTransaction();
+      }
+
+      // Emit automated lifecycle notifications
+      try {
+        if (this.userModel && this.notificationModel) {
+        if (target === CleaningStatus.CLEAN) {
+          // Room cleaned -> Notify Managers for this branch
+          const managers = await this.userModel.find({
+            role: { $in: [UserRole.BRANCH_MGR, UserRole.ADMIN] },
+            branchIds: room.branchId,
+          }).lean().exec();
+
+          for (const mgr of managers) {
+            await this.notificationModel.create({
+              userId: mgr._id,
+              branchId: room.branchId,
+              type: NotificationType.GENERAL,
+              severity: NotificationSeverity.INFO,
+              title: `Room ${room.roomNumber} Cleaned - Ready for Inspection`,
+              body: `${(currentUser as any).displayName || currentUser.email || "Housekeeper"} finished cleaning Room ${room.roomNumber}. Inspection required.`,
+              status: NotificationStatus.SENT,
+              channels: ["inbox", "push"],
+              data: { roomId: room._id.toString(), roomNumber: room.roomNumber },
+            });
+          }
+        } else if (target === CleaningStatus.DIRTY && current !== CleaningStatus.DIRTY) {
+          // Failed inspection -> Notify assigned housekeeper
+          const housekeeperId = linkedDispatch?.assigneeUserId || room.cleaningUpdatedBy;
+          if (housekeeperId) {
+            await this.notificationModel.create({
+              userId: housekeeperId,
+              branchId: room.branchId,
+              type: NotificationType.ROOM_DIRTY,
+              severity: NotificationSeverity.CRITICAL,
+              title: `Reclean Required: Room ${room.roomNumber}`,
+              body: `Inspection failed for Room ${room.roomNumber}. Reason: "${dto.reason || "Needs reclean"}". Please reclean room.`,
+              status: NotificationStatus.SENT,
+              channels: ["inbox", "push"],
+              data: {
+                roomId: room._id.toString(),
+                roomNumber: room.roomNumber,
+                reason: dto.reason || "",
+              },
+            });
+          }
+        } else if (target === CleaningStatus.INSPECTED) {
+          // Passed inspection -> Notify assigned housekeeper
+          const housekeeperId = linkedDispatch?.assigneeUserId || room.cleaningUpdatedBy;
+          if (housekeeperId) {
+            await this.notificationModel.create({
+              userId: housekeeperId,
+              branchId: room.branchId,
+              type: NotificationType.GENERAL,
+              severity: NotificationSeverity.INFO,
+              title: `Room ${room.roomNumber} Passed Inspection`,
+              body: `Room ${room.roomNumber} was inspected and approved by ${(currentUser as any).displayName || currentUser.email || "Manager"}. Great job!`,
+              status: NotificationStatus.SENT,
+              channels: ["inbox", "push"],
+              data: { roomId: room._id.toString(), roomNumber: room.roomNumber },
+            });
+          }
+        }
+        }
+      } catch (notifErr) {
+        this.logger.warn(`Failed to emit room transition notification: ${notifErr}`);
       }
     } catch (err) {
       if (session) {
