@@ -145,12 +145,12 @@ Driver Somchai receives task on: yoonie-mobile-staff
 
 ## 5. Technical Implementation Details
 
-### Next.js Subdomain Routing (`middleware.ts`)
+### Next.js Subdomain Routing (`proxy.ts`)
 In Next.js App Router, routing is resolved at the edge via host inspection:
 
 ```typescript
-// Conceptual Edge Middleware Routing
-export function middleware(req: NextRequest) {
+// Conceptual Edge Proxy Routing (Next.js 16 proxy.ts)
+export function proxy(req: NextRequest) {
   const host = req.headers.get("host") || "";
   const url = req.nextUrl;
 
