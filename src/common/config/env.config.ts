@@ -40,7 +40,17 @@ export function loadEnvConfigs(): EnvironmentConfigs {
       expoAccessToken: process.env.EXPO_ACCESS_TOKEN,
     },
     corsConfig: {
-      origin: allowedOrigins,
+      origin: (origin, callback) => {
+        if (!origin) return callback(null, true);
+        if (
+          allowedOrigins.includes(origin) ||
+          /^https?:\/\/([a-zA-Z0-9-]+\.)*localhost(:[0-9]+)?$/.test(origin) ||
+          /^https?:\/\/([a-zA-Z0-9-]+\.)*yoonie\.si(:[0-9]+)?$/.test(origin)
+        ) {
+          return callback(null, true);
+        }
+        return callback(null, true);
+      },
       credentials: true,
       methods: ["GET", "HEAD", "PUT", "PATCH", "POST", "DELETE", "OPTIONS"],
       allowedHeaders: [

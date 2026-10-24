@@ -69,6 +69,13 @@ import {
   OperationalDispatchSchema,
 } from "../dispatch/entity/operational-dispatch.entity";
 import {
+  Notification,
+  NotificationSchema,
+} from "../notifications/entity/notification.entity";
+import { NotificationType } from "../notifications/enums/notification-type.enum";
+import { NotificationSeverity } from "../notifications/enums/notification-severity.enum";
+import { NotificationStatus } from "../notifications/enums/notification-status.enum";
+import {
   housekeepingPriority,
   pickupPriority,
   evaluateConsolidation,
@@ -91,6 +98,7 @@ const M = {
   hold: mongoose.model(InventoryHold.name, InventoryHoldSchema),
   order: mongoose.model(Order.name, OrderSchema),
   dispatch: mongoose.model(OperationalDispatch.name, OperationalDispatchSchema),
+  notification: mongoose.model(Notification.name, NotificationSchema),
 };
 
 const DAY0 = toBusinessDate(new Date());
@@ -1289,6 +1297,8 @@ async function main() {
       g.stats.stayCount += 1;
       g.stats.lastStayAt = zonedAt(d(-1), "12:00");
     }
+  }
+  for (const g of guests) {
     g.markModified("stats");
     await g.save();
   }
@@ -1426,6 +1436,53 @@ async function main() {
 
   for (const x of dispatches) {
     await M.dispatch.create({ branchId: BRANCH, serviceDate: DAY0, ...x });
+  }
+
+  /* ---- Frontline Notifications (Targeted Per Staff Role) */
+  const noiUser = staff["noi"];
+  const somchaiUser = staff["somchai"];
+  const maliUser = staff["mali"];
+
+  if (noiUser) {
+    await M.notification.create({
+      userId: noiUser._id,
+      branchId: BRANCH,
+      type: NotificationType.ROOM_DIRTY,
+      severity: NotificationSeverity.CRITICAL,
+      title: "Priority Room 105 Turnover",
+      body: "VIP Guest Eleanor Whitfield transfer ETA in 45 mins. Turnaround required before 11:30.",
+      status: NotificationStatus.SENT,
+      channels: ["inbox", "push"],
+      data: { roomNumber: "105" },
+    });
+  }
+
+  if (somchaiUser) {
+    await M.notification.create({
+      userId: somchaiUser._id,
+      branchId: BRANCH,
+      type: NotificationType.PICKUP_READY,
+      severity: NotificationSeverity.INFO,
+      title: "Airport Pickup Assigned: TG917",
+      body: "Sarah Jenkins arriving at Gate/Door 4. Driver welcome sign card prepared.",
+      status: NotificationStatus.SENT,
+      channels: ["inbox", "push"],
+      data: { flightNumber: "TG 917", door: "4" },
+    });
+  }
+
+  if (maliUser) {
+    await M.notification.create({
+      userId: maliUser._id,
+      branchId: BRANCH,
+      type: NotificationType.CRITICAL_ALERT,
+      severity: NotificationSeverity.WARN,
+      title: "Tour Yield Under Capacity Alert",
+      body: "Sunset Cruise has 2/12 booked (17%). Operational decision required.",
+      status: NotificationStatus.SENT,
+      channels: ["inbox", "push"],
+      data: { tour: "Sunset Cruise", fillRate: 0.17 },
+    });
   }
 
   /* ---- Verification Output */
