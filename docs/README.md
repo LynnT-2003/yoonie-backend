@@ -9,6 +9,8 @@ Complete technical and architectural documentation index for the `yoonie-backend
 | Document | Purpose |
 | :--- | :--- |
 | [**`OPERATING_RULES.md`**](./OPERATING_RULES.md) | **Operating Rules (authoritative)**: the laws every dispatched task follows: worker-reported steps, one write path per fact, ownership, deadlines, problems and answers, the ping routing matrix, escalation, AI/robot boundaries, and what's built vs not. Wins over any other doc that disagrees. |
+| [**`business-guide/`**](./business-guide/README.md) | **Business Guide (PDF)**: the whole system in plain language for the business team, including the AI concierge plan and the decisions we need. |
+| [**`operating-system/`**](./operating-system/README.md) | **Yoonie Operating System (PDF)**: the full document across web and staff app: every flow with a sequence diagram, endpoints with request/response tables, statuses, errors, schemas, roles, decisions, open items and build status. |
 | [**`SYSTEM_FLOWS.md`**](./SYSTEM_FLOWS.md) | **System Architecture & Operational Flows**: Sequence diagrams for guest booking journeys, cart holds, background sweeper, 05:30 AM dispatch generation, and housekeeping front-desk zero workflows. |
 | [**`FRONTEND_API.md`**](./FRONTEND_API.md) | **Frontend API Integration Guide**: Exhaustive endpoint references across all 7 domain modules with query parameters, request bodies, response schemas, and TypeScript/Axios code snippets. |
 | [**`DATA_MODEL.md`**](./DATA_MODEL.md) | **Data Model & Lifecycles**: Full Entity-Relationship Diagram (ERD), collection index, and the 5 state machine lifecycles (`Order`, `OrderLine`, `InventorySlot`, `Room`, `OperationalDispatch`). |

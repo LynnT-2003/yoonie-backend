@@ -63,48 +63,47 @@ Keep the **Ops dashboard** (Dispatch + Rooms) open next to the chat. Every staff
 
 ## Part 2 · Staff assistant (webhook with a Yoonie login)
 
+Every staff question is **one command**: it signs in and asks in one go. Change only the name and the message.
+
 ```bash
-API=https://yoonie-backend.vercel.app/api
-HOOK=https://<your-n8n>/webhook/yoonie-staff-assistant
-login() { curl -s -X POST $API/auth/login -H 'content-type: application/json' \
-  -d "{\"email\":\"$1@riverside-bkk.example\",\"password\":\"<password>\"}" | jq -r .data.tokens.accessToken; }
-ask() { curl -s -X POST $HOOK -H "Authorization: Bearer $1" -H 'content-type: application/json' \
-  -d "{\"message\":\"$2\",\"sessionId\":\"demo\"}" | jq -r '.reply // .error'; }
-ANAN=$(login anan); MALI=$(login mali); NOI=$(login noi)
+curl -s -X POST https://lynn1975.app.n8n.cloud/webhook/yoonie-staff-assistant -H "Authorization: Bearer $(curl -s -X POST https://yoonie-backend.vercel.app/api/auth/login -H 'content-type: application/json' -d '{"email":"anan@riverside-bkk.example","password":"Password123!"}' | jq -r .data.tokens.accessToken)" -H 'content-type: application/json' -d '{"message":"What is late today?","sessionId":"demo"}'
 ```
 
+- **Name** (in the email): `anan` manager · `mali` dispatcher · `noi` housekeeper · `prasit` driver
+- **Message:** the text after `"message":`. The questions below show who asks what.
+
 ### 6. The gate
-- `ask "" "What's late today?"` (no login) → 401 "Please sign in to Yoonie"
-- `ask "garbage-token" "hi"` → 401
+- Remove the whole `-H "Authorization: …"` part and send → "Please sign in to Yoonie"
+- Use `-H "Authorization: Bearer nonsense"` → "Please sign in to Yoonie"
 
 ### 7. Today at a glance: `todays_jobs`
-- `ask $ANAN "What's on today? Anything late?"` → open jobs, late / tight rooms and pickups
-- `ask $ANAN "Which rooms still need cleaning before arrivals?"`
-- `ask $ANAN "Where is the EK 372 pickup?"` → driver and step
-- `ask $ANAN "Any tours at risk of losing money?"` → low-fill departures with the numbers
+- **Anan:** "What's on today? Anything late?" → open jobs, late / tight rooms and pickups
+- **Anan:** "Which rooms still need cleaning before arrivals?"
+- **Anan:** "Where is the EK 372 pickup?" → driver and step
+- **Anan:** "Any tours at risk of losing money?" → low-fill departures with the numbers
 
 ### 8. Rooms: `move_room` (watch Dispatch / Rooms update)
-- `ask $NOI "Start cleaning room 202"` → Room 202 Cleaning, claimed by Noi
-- `ask $NOI "Room 202 is done"` → Clean; managers notified (names in the reply)
-- `ask $ANAN "Room 202 passed inspection"` → Ready; Noi notified
-- `ask $ANAN "Send room 202 back, the bathroom isn't done"` → Dirty with reason; Noi gets an urgent alert
-- **Permissions:** `ask $MALI "Mark room 202 clean"` → refused: dispatchers can't move rooms
+- **Noi:** "Start cleaning room 202" → Room 202 Cleaning, claimed by Noi
+- **Noi:** "Room 202 is done" → Clean; managers notified (names in the reply)
+- **Anan:** "Room 202 passed inspection" → Ready; Noi notified
+- **Anan:** "Send room 202 back, the bathroom isn't done" → Dirty with reason; Noi gets an urgent alert
+- **Permissions:** **Mali:** "Mark room 202 clean" → refused: dispatchers can't move rooms
 
 ### 9. Pickups: `pickup_step`, `answer_pickup_problem`
-- `ask $MALI "Prasit called: he's at the arrivals door for EK 372"` → step recorded *for the driver*
-- `ask $MALI "He has the guest in the car"` → desk told the arrival time; housekeeping alerted if the room isn't ready
-- If a driver reported a problem in the app: `ask $MALI "Tell the driver to keep waiting, the flight is delayed to 15:10"`
-- `ask $MALI "Mark it a no-show"` → asks "Shall I go ahead?" first, then closes it and tells the driver
+- **Mali:** "Prasit called: he's at the arrivals door for EK 372" → step recorded *for the driver*
+- **Mali:** "He has the guest in the car" → desk told the arrival time; housekeeping alerted if the room isn't ready
+- If a driver reported a problem in the app: **Mali:** "Tell the driver to keep waiting, the flight is delayed to 15:10"
+- **Mali:** "Mark it a no-show" → asks "Shall I go ahead?" first, then closes it and tells the driver
 
 ### 10. Tours: `tour_decision`
-- `ask $MALI "Merge the Sunday cruise into Saturday's"` → recorded with the note
-- `ask $MALI "Cancel the Ayutthaya tour"` → refused: cancelling needs a manager
-- `ask $ANAN "Cancel the Ayutthaya tour, only 2 guests"` → asks to confirm, then records it
+- **Mali:** "Merge the Sunday cruise into Saturday's" → recorded with the note
+- **Mali:** "Cancel the Ayutthaya tour" → refused: cancelling needs a manager
+- **Anan:** "Cancel the Ayutthaya tour, only 2 guests" → asks to confirm, then records it
 
 ### 11. Assigning: `staff_list`, `assign_task`
-- `ask $ANAN "Who's on shift?"` → staff with job titles
-- `ask $ANAN "Give room 205 to Dao"` → assigned; Dao notified
-- `ask $ANAN "Put it back in the pool"` → open to any housekeeper
+- **Anan:** "Who's on shift?" → staff with job titles
+- **Anan:** "Give room 205 to Dao" → assigned; Dao notified
+- **Anan:** "Put it back in the pool" → open to any housekeeper
 
 ---
 
