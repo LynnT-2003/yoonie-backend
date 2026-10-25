@@ -1,0 +1,377 @@
+{
+  "name": "Yoonie · Guest concierge",
+  "nodes": [
+    {
+      "parameters": {
+        "public": true,
+        "initialMessages": "Sawasdee ka! I'm Yoonie, your concierge. How can I help with your stay?",
+        "options": {}
+      },
+      "id": "63d034f8-490f-4948-9d0a-04ce3f33a63a",
+      "name": "Guest chat",
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "yoonie-guest-concierge"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "631d790d-cc51-4da1-ba42-b59b704d5361",
+              "name": "api",
+              "value": "https://yoonie-backend.vercel.app/api",
+              "type": "string"
+            },
+            {
+              "id": "e848506e-7636-4231-9ef3-71db3a8d5c78",
+              "name": "branchCode",
+              "value": "BKK-RIVERSIDE",
+              "type": "string"
+            },
+            {
+              "id": "1eca3689-d352-4bdb-8038-d048ddfba8b8",
+              "name": "hotelName",
+              "value": "BKK Riverside Boutique Hotel",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "3acf90c5-eec9-4ae0-9016-8ab3402d8b06",
+      "name": "Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        220,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.chatInput }}",
+        "options": {
+          "systemMessage": "=You are Yoonie, the warm, polished concierge of {{ $('Config').item.json.hotelName }} in Bangkok. You speak the guest's language (English or Thai) and keep answers short and friendly.\n\nAlways use your tools for facts. Never guess prices, times or availability:\n- hotel_info: rooms and prices, tours / transfers / spa, restaurant hours, check-in and check-out times, address.\n- check_availability: rooms left and prices for dates (YYYY-MM-DD). Today is {{ $now.setZone('Asia/Bangkok').toFormat('yyyy-LL-dd') }}.\n- lookup_booking: a guest's booking. You need their booking number (like TS-261025-AA70E) AND the email or phone on the booking. Ask for both; never reveal anything without both.\n- send_request: pass a request to the hotel team (towels, cleaning, maintenance, food, transport…). Needs the booking number and email or phone, plus what they need.\n\nRules:\n- You cannot approve anything that costs money or changes a booking: late checkout, upgrades, discounts, refunds, cancellations, free extras. Say a manager decides, and offer to send the request with send_request.\n- To book, share prices and availability and invite them to book on the hotel website; you don't take payments.\n- Never mention internal systems, statuses, codes or staff names. Never share another guest's information.\n- If a tool says a booking wasn't found, ask them to check the number and contact; don't hint which part was wrong."
+        }
+      },
+      "id": "afa0625d-c301-4522-a62c-583833bfa580",
+      "name": "Guest concierge",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        460,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-4o-mini"
+        },
+        "options": {
+          "temperature": 0.3
+        }
+      },
+      "id": "b839c2f8-c524-446b-95d4-8435c79409f1",
+      "name": "OpenAI (guest)",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        140,
+        320
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "U1ogObAxgv0JLQt1",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ 'guest:' + $('Guest chat').item.json.sessionId }}",
+        "contextWindowLength": 12
+      },
+      "id": "a743bf74-1adf-4f32-a690-88af37e59060",
+      "name": "Guest memory",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        0,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "toolDescription": "Hotel facts: room types and nightly prices, tours, airport transfer and spa with prices and times, restaurant hours, check-in/out times, address.",
+        "method": "GET",
+        "url": "={{ $('Config').item.json.api }}/concierge/hotel",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "specifyQuery": "keypair",
+        "parametersQuery": {
+          "values": [
+            {
+              "name": "branchCode",
+              "valueProvider": "fieldValue",
+              "value": "={{ $('Config').item.json.branchCode }}"
+            }
+          ]
+        }
+      },
+      "id": "db0c5d9c-218d-4364-907a-751ae514a84e",
+      "name": "hotel_info",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        300,
+        320
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "yoonieConciergeKey",
+          "name": "Yoonie concierge key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "toolDescription": "Rooms left and prices for a stay. Needs checkIn and checkOut dates as YYYY-MM-DD.",
+        "method": "GET",
+        "url": "={{ $('Config').item.json.api }}/concierge/availability",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "specifyQuery": "keypair",
+        "parametersQuery": {
+          "values": [
+            {
+              "name": "branchCode",
+              "valueProvider": "fieldValue",
+              "value": "={{ $('Config').item.json.branchCode }}"
+            },
+            {
+              "name": "checkIn",
+              "valueProvider": "modelRequired",
+              "description": "Arrival date YYYY-MM-DD"
+            },
+            {
+              "name": "checkOut",
+              "valueProvider": "modelRequired",
+              "description": "Departure date YYYY-MM-DD"
+            }
+          ]
+        }
+      },
+      "id": "3edefa53-c6c4-484c-8c8d-6961f1e966be",
+      "name": "check_availability",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        460,
+        320
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "yoonieConciergeKey",
+          "name": "Yoonie concierge key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "toolDescription": "Look up the guest's own booking: stay dates, room, pickups and bill. Needs the booking number and the email or phone on the booking.",
+        "method": "POST",
+        "url": "={{ $('Config').item.json.api }}/concierge/bookings/lookup",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "keypair",
+        "parametersBody": {
+          "values": [
+            {
+              "name": "orderNumber",
+              "valueProvider": "modelRequired",
+              "description": "Booking number, e.g. TS-261025-AA70E"
+            },
+            {
+              "name": "contact",
+              "valueProvider": "modelRequired",
+              "description": "Email or phone number on the booking"
+            }
+          ]
+        }
+      },
+      "id": "0bf8f910-711e-48a5-aa23-ab31ad8aee47",
+      "name": "lookup_booking",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        620,
+        320
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "yoonieConciergeKey",
+          "name": "Yoonie concierge key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "toolDescription": "Send the guest's request to the hotel team. Needs the booking number, the email or phone on the booking, a category and what they need.",
+        "method": "POST",
+        "url": "={{ $('Config').item.json.api }}/concierge/requests",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "keypair",
+        "parametersBody": {
+          "values": [
+            {
+              "name": "orderNumber",
+              "valueProvider": "modelRequired",
+              "description": "Booking number"
+            },
+            {
+              "name": "contact",
+              "valueProvider": "modelRequired",
+              "description": "Email or phone on the booking"
+            },
+            {
+              "name": "category",
+              "valueProvider": "modelRequired",
+              "description": "One of HOUSEKEEPING, AMENITY, MAINTENANCE, FOOD_AND_DRINK, TRANSPORT, OTHER"
+            },
+            {
+              "name": "details",
+              "valueProvider": "modelRequired",
+              "description": "What the guest needs, in their words"
+            }
+          ]
+        }
+      },
+      "id": "7b083752-8929-4774-8d1f-6bf4e74fd7b2",
+      "name": "send_request",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        780,
+        320
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "yoonieConciergeKey",
+          "name": "Yoonie concierge key"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Guest chat": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config": {
+      "main": [
+        [
+          {
+            "node": "Guest concierge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI (guest)": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Guest concierge",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guest memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "Guest concierge",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "hotel_info": {
+      "ai_tool": [
+        [
+          {
+            "node": "Guest concierge",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "check_availability": {
+      "ai_tool": [
+        [
+          {
+            "node": "Guest concierge",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "lookup_booking": {
+      "ai_tool": [
+        [
+          {
+            "node": "Guest concierge",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "send_request": {
+      "ai_tool": [
+        [
+          {
+            "node": "Guest concierge",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}
