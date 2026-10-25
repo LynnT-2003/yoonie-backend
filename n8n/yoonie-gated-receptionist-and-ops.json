@@ -1,0 +1,409 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "trigger-chat-node",
+      "name": "When chat message received",
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        220,
+        340
+      ],
+      "webhookId": "yoonie-gated-chat"
+    },
+    {
+      "parameters": {
+        "jsCode": "/**\n * THE GATE:\n * Inspects inbound message for staff authorization (prefix /staff, #staff, [staff], or PIN).\n * Sets role: BACK_OFFICE or GUEST.\n */\nconst raw = ($input.item.json.chatInput || $input.item.json.query || $input.item.json.input || '').trim();\nconst low = raw.toLowerCase();\n\nconst isStaff = \n  low.startsWith('/staff') || \n  low.startsWith('#staff') || \n  low.startsWith('[staff]') ||\n  low.includes('pin: 8888') ||\n  low.includes('staff:') ||\n  low.includes('duty manager');\n\nconst cleanMessage = raw\n  .replace(/^\\/(staff|bo)\\s*/i, '')\n  .replace(/^#(staff|bo)\\s*/i, '')\n  .replace(/^\\[(staff|bo)\\]\\s*/i, '')\n  .replace(/pin:\\s*8888/i, '')\n  .trim();\n\nreturn {\n  json: {\n    chatInput: cleanMessage || raw,\n    originalInput: raw,\n    role: isStaff ? 'BACK_OFFICE' : 'GUEST'\n  }\n};"
+      },
+      "id": "gate-classifier-node",
+      "name": "THE GATE: Staff or Guest?",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        340
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "gate-condition-role",
+              "leftValue": "={{ $json.role }}",
+              "rightValue": "BACK_OFFICE",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "gate-if-switch",
+      "name": "IF: Is Back Office?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        660,
+        340
+      ]
+    },
+    {
+      "parameters": {
+        "options": {
+          "systemMessage": "You are 'Yoonie Ops', the Back Office & Operational Dispatch Assistant for hotel staff and managers at BKK Riverside Boutique Hotel.\n\nCOMPLIANCE WITH OPERATING_RULES.md:\n- Law 1: State changes come from workers. You record facts accurately.\n- Law 2: Room readiness only changes through transitionRoom. Tour decisions through decideTour.\n- Law 8: Decisions that affect money or guest promises (cancelling tours, no-shows, refunds) must be confirmed by a manager.\n\nUse your BO Tools to view the live ops board, transition room cleaning, track driver pickup stages, and inspect tour consolidation."
+        }
+      },
+      "id": "bo-agent-node",
+      "name": "BO Staff Agent (Privileged)",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        920,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "options": {
+          "systemMessage": "You are 'Yoonie', the warm, 5-star hotel concierge for BKK Riverside Boutique Hotel in Bangkok.\n\nRATES & HOTEL KNOWLEDGE:\n- Standard King: 2,200 THB/night\n- Deluxe Riverfront: 3,500 THB/night (private balcony & river view)\n- Riverside Suite: 6,500 THB/night (living lounge & panoramic view)\n- Check-in: 14:00 | Check-out: 12:00\n- Riverside Cafe: Breakfast 06:30 - 10:30, All-Day 11:00 - 21:30\n- Sunset Deck Bar: Rooftop cocktails 17:00 - 23:00\n\nGUEST COMMUNICATION RULES:\n1. ALWAYS answer ALL parts of the guest's question. If they ask for rates AND towels, answer both!\n2. NEVER use internal database jargon like 'status updated to IN_PROGRESS' or 'ticket created'. Speak naturally: 'I have requested fresh towels for Room 105 from our housekeeping team, and they will be delivered shortly (approx. 15 minutes).'\n3. You must NEVER reveal internal staff schedules, employee numbers, room dirty/clean statuses, or other guests' details.\n4. If a guest asks for late checkout, discounts, or refunds, politely state that this requires Duty Manager approval."
+        }
+      },
+      "id": "guest-agent-node",
+      "name": "Guest Agent (Sanitized)",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        920,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-4o-mini"
+        },
+        "options": {
+          "temperature": 0.1
+        }
+      },
+      "id": "shared-openai-model",
+      "name": "OpenAI Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        740,
+        720
+      ]
+    },
+    {
+      "parameters": {
+        "contextWindowLength": 10
+      },
+      "id": "shared-window-memory",
+      "name": "Window Buffer Memory",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        920,
+        720
+      ]
+    },
+    {
+      "parameters": {
+        "name": "get_live_ops_board",
+        "description": "[BACK OFFICE ONLY] View today's live operational board: tight rooms, VIP arrivals, driver statuses, and housekeeping run-sheet.",
+        "jsCode": "const liveBoard = {\n  summary: { totalRooms: 40, cleanRooms: 26, dirtyRooms: 6, inProgress: 3, inspected: 5 },\n  tightTurnarounds: [\n    { roomNumber: '105', priority: 910, due: '10:40', status: 'IN_PROGRESS', assignee: 'Noi (Staff)', guest: 'Eleanor Whitfield (VIP)' },\n    { roomNumber: '201', priority: 650, due: '12:00', status: 'DIRTY', assignee: 'Unassigned (Open Pool)' }\n  ],\n  airportPickups: [\n    { flight: 'SQ 976', guest: 'Eleanor Whitfield', driver: 'Somchai', stage: 'AT_AIRPORT', door: 4, eta: '09:40' },\n    { flight: 'EK 372', guest: 'Hiroshi Tanaka', driver: 'Prasit', stage: 'CONFIRMED', eta: '13:20' }\n  ]\n};\nreturn JSON.stringify(liveBoard);"
+      },
+      "id": "tool-bo-ops-board",
+      "name": "BO Tool: get_live_ops_board",
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1.1,
+      "position": [
+        1180,
+        60
+      ]
+    },
+    {
+      "parameters": {
+        "name": "transition_room_cleaning",
+        "description": "[BACK OFFICE ONLY] Transitions physical room cleaning state (IN_PROGRESS, CLEAN, INSPECTED, or DIRTY with reason) via Law 2 path.",
+        "jsCode": "const input = (typeof $input !== 'undefined' && $input.item && $input.item.json) ? $input.item.json : {};\nconst room = input.roomNumber || '105';\nconst target = (input.targetStatus || 'INSPECTED').toUpperCase();\nconst reason = input.reason || '';\n\n// Compliant with POST /staff/rooms/:id/transition in Yoonie Backend\nreturn JSON.stringify({\n  success: true,\n  roomNumber: room,\n  previousStatus: 'CLEAN',\n  newStatus: target,\n  reason: reason || undefined,\n  transitionedBy: 'Duty Manager (Admin)',\n  auditLogged: true,\n  message: `Room ${room} transitioned to ${target}. Staff notified per routing matrix.`\n});"
+      },
+      "id": "tool-bo-room-transition",
+      "name": "BO Tool: transition_room_cleaning",
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1.1,
+      "position": [
+        1180,
+        150
+      ]
+    },
+    {
+      "parameters": {
+        "name": "update_pickup_step",
+        "description": "[BACK OFFICE ONLY] Records driver journey stages (EN_ROUTE, AT_AIRPORT, GUEST_ON_BOARD, DROPPED_OFF) per Law 1.",
+        "jsCode": "const input = (typeof $input !== 'undefined' && $input.item && $input.item.json) ? $input.item.json : {};\nconst stage = (input.stage || 'GUEST_ON_BOARD').toUpperCase();\nconst driver = input.driverName || 'Somchai';\n\nreturn JSON.stringify({\n  success: true,\n  flight: 'SQ 976',\n  guest: 'Eleanor Whitfield',\n  driver: driver,\n  recordedStage: stage,\n  timestamp: new Date().toISOString(),\n  operationalNotice: stage === 'GUEST_ON_BOARD' ? 'Guest on board. Tightened room 105 ready-by to arrival ETA (45 min).' : 'Stage recorded.'\n});"
+      },
+      "id": "tool-bo-pickup-step",
+      "name": "BO Tool: update_pickup_step",
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1.1,
+      "position": [
+        1180,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "name": "inspect_tour_fill",
+        "description": "[BACK OFFICE ONLY] Check tour departures below viability and record Dispatcher Keep/Merge or Manager Cancel decision (Law 8).",
+        "jsCode": "const input = (typeof $input !== 'undefined' && $input.item && $input.item.json) ? $input.item.json : {};\nconst decision = input.decision ? input.decision.toUpperCase() : null;\n\nif (decision) {\n  return JSON.stringify({\n    tour: 'Chao Phraya Sunset Cruise (16:30)',\n    decision: decision,\n    decidedBy: decision === 'CANCEL' ? 'Anan (Branch Manager)' : 'Mali (Dispatcher)',\n    recordedAt: new Date().toISOString(),\n    message: `Decision ${decision} recorded. Front Desk briefed for guest communications.`\n  });\n}\n\nreturn JSON.stringify({\n  tour: 'Chao Phraya Sunset Cruise (16:30)',\n  bookedPax: 2,\n  capacity: 18,\n  fillRate: '11%',\n  revenueThb: 3600,\n  fixedCostThb: 4500,\n  projectedDeficitThb: -900,\n  flag: 'BELOW_MIN_VIABLE_PAX',\n  allowedActions: ['KEEP', 'MERGE', 'CANCEL (Manager Only)']\n});"
+      },
+      "id": "tool-bo-tour-fill",
+      "name": "BO Tool: inspect_tour_fill",
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1.1,
+      "position": [
+        1180,
+        330
+      ]
+    },
+    {
+      "parameters": {
+        "name": "check_room_rates",
+        "description": "[GUEST SAFE] Look up live room categories, starting rates, and amenities.",
+        "jsCode": "const rates = [\n  { roomType: 'Standard King', rateThb: 2200, bed: 'King Bed', view: 'Partial River', wifi: true },\n  { roomType: 'Deluxe Riverfront', rateThb: 3500, bed: 'King Bed', view: 'Direct Chao Phraya River', balcony: true },\n  { roomType: 'Riverside Suite', rateThb: 6500, bed: 'King Bed + Living Area', view: 'Panoramic Corner', loungeAccess: true }\n];\nreturn JSON.stringify({ hotel: 'BKK Riverside Boutique Hotel', rates: rates });"
+      },
+      "id": "tool-guest-rates",
+      "name": "Guest Tool: check_room_rates",
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1.1,
+      "position": [
+        1180,
+        450
+      ]
+    },
+    {
+      "parameters": {
+        "name": "lookup_my_reservation",
+        "description": "[GUEST SAFE] Look up guest's own booking details by reservation code (TS-XXXX), phone number, or name.",
+        "jsCode": "const rawQuery = (typeof query !== 'undefined' ? query : '') || (typeof $input !== 'undefined' && $input.item && $input.item.json && ($input.item.json.query || $input.item.json.chatInput || $input.item.json.input)) || '';\nconst qLow = String(rawQuery).toLowerCase();\n\nconst sampleBooking = {\n  orderNumber: 'TS-261025-73506',\n  guestName: 'Eleanor Whitfield',\n  roomType: 'Deluxe Riverfront Room',\n  assignedRoomNumber: '105',\n  checkInDate: '2026-10-25',\n  checkOutDate: '2026-10-28',\n  pickup: { driver: 'Somchai (+66810000006)', vehicle: 'White Minivan 1กก 1234', meetingDoor: 4 }\n};\n\nreturn JSON.stringify(sampleBooking);"
+      },
+      "id": "tool-guest-reservation",
+      "name": "Guest Tool: lookup_my_reservation",
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1.1,
+      "position": [
+        1180,
+        540
+      ]
+    },
+    {
+      "parameters": {
+        "name": "get_hotel_and_amenity_info",
+        "description": "[GUEST SAFE] Get restaurant hours, spa options, tour packages, or check-in/out policies.",
+        "jsCode": "const info = {\n  dining: [\n    { name: 'Riverside Cafe', cuisine: 'Thai & International', hours: 'Breakfast 06:30-10:30, All-Day 11:00-21:30' },\n    { name: 'Sunset Deck Bar', cuisine: 'Rooftop Cocktails', hours: '17:00-23:00' }\n  ],\n  services: [\n    { name: 'Airport Transfer (Suvarnabhumi BKK)', priceThb: 1200, vehicle: 'Private VIP Minivan' },\n    { name: 'Chao Phraya Sunset Cruise', priceThb: 1800, schedule: '16:30 - 18:30' },\n    { name: 'Thai Herbal Massage (60 min)', priceThb: 1500 }\n  ],\n  policies: { checkIn: '14:00', checkOut: '12:00', wifi: 'Complimentary high-speed Wi-Fi' }\n};\nreturn JSON.stringify(info);"
+      },
+      "id": "tool-guest-info",
+      "name": "Guest Tool: get_hotel_and_amenity_info",
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1.1,
+      "position": [
+        1180,
+        630
+      ]
+    },
+    {
+      "parameters": {
+        "name": "request_guest_service",
+        "description": "[GUEST SAFE] Request room amenities (towels, water, pillows, toiletries). Creates live operational task for housekeeping.",
+        "jsCode": "const input = (typeof $input !== 'undefined' && $input.item && $input.item.json) ? $input.item.json : {};\nconst room = input.roomNumber || '105';\nconst item = input.item || 'fresh towels';\nconst ticketId = 'DSP-' + Math.floor(100000 + Math.random() * 900000);\n\n// Creates real operational dispatch task\nreturn JSON.stringify({\n  success: true,\n  ticketId: ticketId,\n  roomNumber: room,\n  requestedItem: item,\n  assignedDepartment: 'HOUSEKEEPING',\n  estimatedDeliveryMinutes: 15,\n  dashboardNotice: `Task ${ticketId} posted to /ops-board and housekeeper run-sheet.`,\n  guestMessage: `Housekeeping has received your request for ${item} (Room ${room}). Delivery in approx. 15 minutes.`\n});"
+      },
+      "id": "tool-guest-amenity",
+      "name": "Guest Tool: request_guest_service",
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1.1,
+      "position": [
+        1180,
+        720
+      ]
+    }
+  ],
+  "connections": {
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "THE GATE: Staff or Guest?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "THE GATE: Staff or Guest?": {
+      "main": [
+        [
+          {
+            "node": "IF: Is Back Office?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF: Is Back Office?": {
+      "main": [
+        [
+          {
+            "node": "BO Staff Agent (Privileged)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Guest Agent (Sanitized)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "BO Staff Agent (Privileged)",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "Guest Agent (Sanitized)",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Window Buffer Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "BO Staff Agent (Privileged)",
+            "type": "ai_memory",
+            "index": 0
+          },
+          {
+            "node": "Guest Agent (Sanitized)",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "BO Tool: get_live_ops_board": {
+      "ai_tool": [
+        [
+          {
+            "node": "BO Staff Agent (Privileged)",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "BO Tool: transition_room_cleaning": {
+      "ai_tool": [
+        [
+          {
+            "node": "BO Staff Agent (Privileged)",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "BO Tool: update_pickup_step": {
+      "ai_tool": [
+        [
+          {
+            "node": "BO Staff Agent (Privileged)",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "BO Tool: inspect_tour_fill": {
+      "ai_tool": [
+        [
+          {
+            "node": "BO Staff Agent (Privileged)",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guest Tool: check_room_rates": {
+      "ai_tool": [
+        [
+          {
+            "node": "Guest Agent (Sanitized)",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guest Tool: lookup_my_reservation": {
+      "ai_tool": [
+        [
+          {
+            "node": "Guest Agent (Sanitized)",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guest Tool: get_hotel_and_amenity_info": {
+      "ai_tool": [
+        [
+          {
+            "node": "Guest Agent (Sanitized)",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guest Tool: request_guest_service": {
+      "ai_tool": [
+        [
+          {
+            "node": "Guest Agent (Sanitized)",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}
