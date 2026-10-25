@@ -7,6 +7,11 @@ import {
   Severity,
 } from "../../common/enums/dispatch.enum";
 import { BUSINESS_DATE } from "../../common/helpers/regex.helper";
+import {
+  PickupIssueKind,
+  PickupIssueResolution,
+  PickupStage,
+} from "../../common/enums/pickup.enum";
 
 @Schema({ _id: false })
 export class HousekeepingPayload {
@@ -85,6 +90,13 @@ export class ConsolidationPayload {
     required: true,
   })
   recommendation!: string;
+
+  /** What the manager decided; the flag is closed once this is set. */
+  @Prop({ type: String, enum: ["KEEP", "MERGE", "CANCEL"] })
+  decision?: "KEEP" | "MERGE" | "CANCEL";
+
+  @Prop({ type: String })
+  decisionNote?: string;
 }
 export const ConsolidationPayloadSchema =
   SchemaFactory.createForClass(ConsolidationPayload);
@@ -98,6 +110,55 @@ export class PickupCard {
   th!: string;
 }
 export const PickupCardSchema = SchemaFactory.createForClass(PickupCard);
+
+/** One reported step of a pickup: what happened, when, and who reported it. */
+@Schema({ _id: false })
+export class PickupStep {
+  @Prop({ type: String, enum: Object.values(PickupStage), required: true })
+  stage!: PickupStage;
+
+  @Prop({ type: Date, required: true })
+  at!: Date;
+
+  @Prop({ type: Types.ObjectId, ref: "User" })
+  byUserId?: Types.ObjectId;
+
+  @Prop({ type: String })
+  byName?: string;
+
+  @Prop({ type: String })
+  note?: string;
+}
+export const PickupStepSchema = SchemaFactory.createForClass(PickupStep);
+
+/** A problem the driver raised that the desk has to answer. */
+@Schema({ _id: false })
+export class PickupIssue {
+  @Prop({ type: String, enum: Object.values(PickupIssueKind), required: true })
+  kind!: PickupIssueKind;
+
+  @Prop({ type: String })
+  note?: string;
+
+  @Prop({ type: Date, required: true })
+  at!: Date;
+
+  @Prop({ type: String })
+  byName?: string;
+
+  @Prop({ type: Date })
+  resolvedAt?: Date;
+
+  @Prop({ type: String, enum: Object.values(PickupIssueResolution) })
+  resolution?: PickupIssueResolution;
+
+  @Prop({ type: String })
+  resolutionNote?: string;
+
+  @Prop({ type: String })
+  resolvedByName?: string;
+}
+export const PickupIssueSchema = SchemaFactory.createForClass(PickupIssue);
 
 @Schema({ _id: false })
 export class PickupPayload {
@@ -141,6 +202,19 @@ export class PickupPayload {
 
   @Prop({ type: PickupCardSchema, required: true })
   card!: PickupCard;
+
+  @Prop({
+    type: String,
+    enum: Object.values(PickupStage),
+    default: PickupStage.ASSIGNED,
+  })
+  stage?: PickupStage;
+
+  @Prop({ type: [PickupStepSchema], default: [] })
+  steps?: PickupStep[];
+
+  @Prop({ type: PickupIssueSchema })
+  issue?: PickupIssue;
 }
 export const PickupPayloadSchema = SchemaFactory.createForClass(PickupPayload);
 

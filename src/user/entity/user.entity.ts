@@ -283,9 +283,17 @@ export const computeVipScore = (stats?: {
       Math.min(40, ((stats && stats.stayCount) || 0) * 8),
   );
 
+export const vipTierFor = (score = 0): string =>
+  score >= 80
+    ? "PLATINUM"
+    : score >= 50
+      ? "GOLD"
+      : score >= 20
+        ? "SILVER"
+        : "NONE";
+
 UserSchema.virtual("vipTier").get(function (this: UserDocument) {
-  const s = this.vipScore || 0;
-  return s >= 80 ? "PLATINUM" : s >= 50 ? "GOLD" : s >= 20 ? "SILVER" : "NONE";
+  return vipTierFor(this.vipScore || 0);
 });
 
 UserSchema.pre("save", function (this: UserDocument) {

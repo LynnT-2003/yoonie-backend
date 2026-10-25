@@ -9,7 +9,6 @@ import {
   Min,
 } from "class-validator";
 import { RoomTypeCode } from "../../../common/enums/room-type.enum";
-import { CleaningStatus } from "../../../common/enums/cleaning-status.enum";
 
 export class UpdateRoomDto {
   @ApiPropertyOptional({ example: "101", description: "Unique room number" })
@@ -81,8 +80,5 @@ export class UpdateRoomDto {
   @IsOptional()
   images?: string[];
 
-  @ApiPropertyOptional({ enum: CleaningStatus })
-  @IsEnum(CleaningStatus)
-  @IsOptional()
-  cleaningStatus?: CleaningStatus;
+  // cleaningStatus is deliberately absent: it only changes through POST /staff/rooms/:id/transition
 }

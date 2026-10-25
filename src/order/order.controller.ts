@@ -6,6 +6,7 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  Patch,
   Post,
   Query,
   UnauthorizedException,
@@ -28,8 +29,9 @@ import { OrderService } from "./order.service";
 import { CreateOrderDto } from "./dto/requests/create-order.dto";
 import { ConfirmPaymentDto } from "./dto/requests/confirm-payment.dto";
 import { CancelOrderLineDto } from "./dto/requests/cancel-order-line.dto";
+import { RecordPaymentDto } from "./dto/requests/record-payment.dto";
+import { UpdateFlightDto } from "./dto/requests/update-flight.dto";
 import { OrderResponseDto } from "./dto/responses/order-response.dto";
-import { Order } from "./entity/order.entity";
 
 @ApiTags("Orders & Bookings")
 @ApiBearerAuth("JWT-auth")
@@ -52,7 +54,7 @@ export class OrderController {
     type: OrderResponseDto,
   })
   async createOrder(@Body() orderData: CreateOrderDto) {
-    return this.orderService.create(orderData as unknown as Partial<Order>);
+    return this.orderService.createFromCheckout(orderData);
   }
 
   @Public()
@@ -108,6 +110,39 @@ export class OrderController {
       dto.paymentRef,
       dto.paidThb,
     );
+  }
+
+  @Roles(UserRole.ADMIN, UserRole.BRANCH_MGR)
+  @Post(":id/payments")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      "Record money collected at the hotel (cash, card, PromptPay, transfer)",
+    description:
+      "Appends to the order's payment ledger and moves it to DEPOSIT or PAID. Rejects amounts above the balance due.",
+  })
+  async recordPayment(
+    @CurrentUser() user: ICurrentUser,
+    @Param("id") id: string,
+    @Body() dto: RecordPaymentDto,
+  ) {
+    return this.orderService.recordPayment(id, user, dto);
+  }
+
+  @Roles(UserRole.ADMIN, UserRole.BRANCH_MGR, UserRole.DISPATCHER)
+  @Patch(":id/lines/:lineId/flight")
+  @ApiOperation({
+    summary: "Set or correct the arrival flight on an airport transfer",
+    description:
+      "Moves the van slot if the hour changes, then re-plans the pickup and the room turnaround.",
+  })
+  async updateFlight(
+    @CurrentUser() user: ICurrentUser,
+    @Param("id") id: string,
+    @Param("lineId") lineId: string,
+    @Body() dto: UpdateFlightDto,
+  ) {
+    return this.orderService.updateTransferFlight(id, lineId, user, dto);
   }
 
   @Public()

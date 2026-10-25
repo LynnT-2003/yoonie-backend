@@ -304,6 +304,37 @@ export class OrderWindow {
 }
 export const OrderWindowSchema = SchemaFactory.createForClass(OrderWindow);
 
+export const PAYMENT_METHODS = [
+  "CASH",
+  "CARD",
+  "PROMPTPAY",
+  "BANK_TRANSFER",
+] as const;
+export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
+
+/** One collected payment; the ledger is append-only so deposits and split payments stay auditable. */
+@Schema({ _id: false })
+export class PaymentEntry {
+  @Prop({ required: true, min: 0 })
+  amountThb!: number;
+
+  @Prop({ type: String, enum: PAYMENT_METHODS, required: true })
+  method!: PaymentMethod;
+
+  @Prop({ type: String })
+  reference?: string;
+
+  @Prop({ type: Date, required: true })
+  receivedAt!: Date;
+
+  @Prop({ type: Types.ObjectId, ref: "User" })
+  receivedBy?: Types.ObjectId;
+
+  @Prop({ type: String })
+  receivedByName?: string;
+}
+export const PaymentEntrySchema = SchemaFactory.createForClass(PaymentEntry);
+
 @Schema({ _id: false })
 export class PaymentInfo {
   @Prop({
@@ -321,6 +352,9 @@ export class PaymentInfo {
 
   @Prop({ type: String })
   providerRef?: string;
+
+  @Prop({ type: [PaymentEntrySchema], default: [] })
+  entries!: PaymentEntry[];
 }
 export const PaymentInfoSchema = SchemaFactory.createForClass(PaymentInfo);
 

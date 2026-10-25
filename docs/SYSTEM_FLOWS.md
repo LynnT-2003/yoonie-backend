@@ -2,6 +2,8 @@
 
 High-level architectural blueprint and sequence diagrams for the `yoonie-backend` hospitality operating system.
 
+> **Out of date in places.** Phase 3–4 and Flow 4 show rooms and tasks being patched directly (`PATCH /rooms/:id/cleaning`, `PATCH /dispatch/:id/status`). That model is retired. Rooms move only through `POST /staff/rooms/:id/transition`, and pickups move through driver-reported steps. See [`OPERATING_RULES.md`](./OPERATING_RULES.md), which takes precedence.
+
 ---
 
 ## 1. Architecture & Domain Decoupling
