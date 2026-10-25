@@ -45,7 +45,7 @@ export function loadEnvConfigs(): EnvironmentConfigs {
         if (
           allowedOrigins.includes(origin) ||
           /^https?:\/\/([a-zA-Z0-9-]+\.)*localhost(:[0-9]+)?$/.test(origin) ||
-          /^https?:\/\/([a-zA-Z0-9-]+\.)*yoonie\.si(:[0-9]+)?$/.test(origin)
+          /^https?:\/\/([a-zA-Z0-9-]+\.)*(yoonie\.(app|si)|vercel\.app)(:[0-9]+)?$/.test(origin)
         ) {
           return callback(null, true);
         }
