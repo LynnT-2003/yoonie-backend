@@ -8,12 +8,13 @@ import { MongoConnectionLogger } from "./mongo.connection.logger";
   imports: [
     MongooseModule.forRootAsync({
       inject: [ConfigService],
-      // lazyConnection: app boots immediately even if MongoDB is unreachable.
-      // Mongoose retries connection in background; MongoConnectionLogger emits events.
-      // Mirrors PrismaService's try/catch boot-tolerance for symmetric variant behavior.
+      // Locally the app boots even when MongoDB is unreachable (lazy) and the
+      // connection logger retries. On Vercel the function is frozen between
+      // requests, so a background first connect can time out while frozen and
+      // never recover: there, boot waits for the connection instead.
       useFactory: (configService: ConfigService) => ({
         uri: configService.get<{ uri?: string }>("databaseConfig")!.uri,
-        lazyConnection: true,
+        lazyConnection: !process.env.VERCEL,
       }),
     }),
   ],
