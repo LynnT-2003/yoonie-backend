@@ -21,6 +21,7 @@ import { OrderModule } from "./order/order.module";
 import { DispatchModule } from "./dispatch/dispatch.module";
 import { OpsBoardModule } from "./ops-board/ops-board.module";
 import { ConciergeModule } from "./concierge/concierge.module";
+import { AssistantModule } from "./assistant/assistant.module";
 import { R2Module } from "./storage/r2.module";
 import { ScheduleModule } from "@nestjs/schedule";
 import { StaffModule } from "./staff/staff.module";
@@ -66,6 +67,7 @@ import { AuditModule } from "./audit/audit.module";
     DispatchModule,
     OpsBoardModule,
     ConciergeModule,
+    AssistantModule,
     R2Module,
     StaffModule,
     DevicesModule,
