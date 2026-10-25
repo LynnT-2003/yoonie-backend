@@ -1,5 +1,48 @@
-import { ApiProperty } from "@nestjs/swagger";
-import { IsString, Length } from "class-validator";
+import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
+import { Type } from "class-transformer";
+import {
+  IsIn,
+  IsOptional,
+  IsString,
+  Length,
+  Matches,
+  ValidateNested,
+} from "class-validator";
+import { BUSINESS_DATE } from "../../common/helpers/regex.helper";
+
+export const ASSISTANT_PAGES = [
+  "rooms",
+  "guests",
+  "services",
+  "dispatch",
+  "property",
+  "other",
+] as const;
+export type AssistantPage = (typeof ASSISTANT_PAGES)[number];
+
+/** Where the staff member is when they ask, so Yoonie answers about that. */
+export class AssistantContextDto {
+  @ApiProperty({ enum: ASSISTANT_PAGES, example: "rooms" })
+  @IsIn(ASSISTANT_PAGES)
+  page!: AssistantPage;
+
+  @ApiPropertyOptional({
+    example: "305",
+    description: "Room open in the room sheet",
+  })
+  @IsOptional()
+  @IsString()
+  @Length(1, 10)
+  roomNumber?: string;
+
+  @ApiPropertyOptional({
+    example: "2026-10-25",
+    description: "Date the page is showing",
+  })
+  @IsOptional()
+  @Matches(BUSINESS_DATE)
+  date?: string;
+}
 
 export class AssistantMessageDto {
   @ApiProperty({
@@ -14,4 +57,10 @@ export class AssistantMessageDto {
   @IsString()
   @Length(1, 1000)
   message!: string;
+
+  @ApiPropertyOptional({ type: AssistantContextDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => AssistantContextDto)
+  context?: AssistantContextDto;
 }

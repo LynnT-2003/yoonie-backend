@@ -6,6 +6,7 @@ import {
   UnauthorizedException,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import { AssistantContextDto } from "./dto/assistant.dto";
 
 const TIMEOUT_MS = 60_000;
 
@@ -63,10 +64,15 @@ export class AssistantService {
     return { reply };
   }
 
-  async askStaff(authorization: string, sessionId: string, message: string) {
+  async askStaff(
+    authorization: string,
+    sessionId: string,
+    message: string,
+    context?: AssistantContextDto,
+  ) {
     const { status, data } = await this.post(
       this.url("N8N_STAFF_WEBHOOK_URL"),
-      { message, sessionId },
+      { message, sessionId, context: context ?? { page: "other" } },
       { authorization },
     );
     if (status === 401) {

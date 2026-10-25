@@ -8,7 +8,7 @@
         "responseMode": "responseNode",
         "options": {}
       },
-      "id": "770e23e3-ca2b-443d-8087-64211e53e485",
+      "id": "7aeaab20-4b95-4117-815e-7d2abdc428f0",
       "name": "Staff message",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
@@ -23,7 +23,7 @@
         "assignments": {
           "assignments": [
             {
-              "id": "6bdaf1c9-0524-4324-936a-c23690f929ab",
+              "id": "dc793a5d-36f5-4646-8bab-67f5c9e99a90",
               "name": "api",
               "value": "https://yoonie-backend.vercel.app/api",
               "type": "string"
@@ -33,7 +33,7 @@
         "includeOtherFields": true,
         "options": {}
       },
-      "id": "684c03e4-108e-4e84-a728-efdc1b2a442c",
+      "id": "b239f2b6-ec8a-4ef3-9691-a1a5eec94506",
       "name": "Config",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
@@ -56,7 +56,7 @@
         },
         "options": {}
       },
-      "id": "fe8991eb-165f-4c55-a5f9-005bd20886d9",
+      "id": "03861c36-ea4e-4f50-9d63-50c0d2dfc5cc",
       "name": "Who is asking",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -68,9 +68,9 @@
     },
     {
       "parameters": {
-        "jsCode": "// The gate: only a signed-in Yoonie staff member gets this far, and every tool runs as them\nconst me = $json.data;\nconst req = $('Staff message').item.json;\nif (!me || me.role === 'GUEST') {\n  return [{ json: { allowed: false } }];\n}\nreturn [{ json: {\n  allowed: true,\n  userId: me._id,\n  name: me.displayName,\n  role: me.role,\n  jobTitle: me.jobTitle || '',\n  branchId: (me.branchIds || [])[0],\n  today: new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' }),\n  auth: req.headers.authorization,\n  sessionId: req.body.sessionId || me._id,\n  chatInput: String(req.body.message || req.body.chatInput || ''),\n} }];"
+        "jsCode": "// The gate: only a signed-in Yoonie staff member gets this far, and every tool runs as them\nconst me = $json.data;\nconst req = $('Staff message').item.json;\nif (!me || me.role === 'GUEST') {\n  return [{ json: { allowed: false } }];\n}\nreturn [{ json: {\n  allowed: true,\n  userId: me._id,\n  name: me.displayName,\n  role: me.role,\n  jobTitle: me.jobTitle || '',\n  branchId: (me.branchIds || [])[0],\n  today: new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' }),\n  auth: req.headers.authorization,\n  sessionId: req.body.sessionId || me._id,\n  chatInput: String(req.body.message || req.body.chatInput || ''),\n  page: (req.body.context && req.body.context.page) || 'other',\n  roomNumber: (req.body.context && req.body.context.roomNumber) || '',\n  pageDate: (req.body.context && req.body.context.date) || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' }),\n  pageBrief: (() => {\n    const c = req.body.context || {};\n    const room = c.roomNumber ? ` They have room ${c.roomNumber} open: assume questions are about room ${c.roomNumber} unless they say otherwise, and use rooms_now to see it.` : '';\n    const briefs = {\n      rooms: 'They are on the ROOMS page (board, floor map, timeline). Go deep on rooms: use rooms_now for every room's cleaning state, who is in it tonight, who arrives and their ready-by time, departures, the room's job and owner, and each stay's bill. Compare against ready-by times; call out rooms that will be late.' + room,\n      guests: 'They are on the GUESTS page. Go deep on guests: use guests_now for who is in house, arriving, departing and due in the next 7 days, their bookings, services and balances.',\n      services: 'They are on the SERVICES page. Go deep on transfers, tours and spa: use services_now for each slot's capacity, bookings, revenue against cost and who is booked.',\n      dispatch: 'They are on the DISPATCH page. Go deep on today's jobs: use todays_jobs for rooms, pickups and tours with owners, steps and deadlines.',\n      property: 'They are on the PROPERTY page (rooms and services catalogue). Use rooms_now and services_now for facts.',\n    };\n    return briefs[c.page] || 'Answer about whatever they ask; todays_jobs is the best place to start.';\n  })(),\n} }];"
       },
-      "id": "2e4825eb-4723-475a-979f-a11805d8dcf3",
+      "id": "e16ed31b-8eff-4900-9675-54c7950a2854",
       "name": "Context",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -90,7 +90,7 @@
           },
           "conditions": [
             {
-              "id": "3d199196-323f-4bda-9004-e619961708f2",
+              "id": "abe5150f-3101-4aff-b940-9ead40a68978",
               "leftValue": "={{ $json.allowed }}",
               "rightValue": true,
               "operator": {
@@ -104,7 +104,7 @@
         },
         "options": {}
       },
-      "id": "a22ff99e-d297-4285-9fa4-86b1505f3036",
+      "id": "76df07d0-47b7-440c-8b3b-8d93babdf374",
       "name": "Staff?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
@@ -118,10 +118,10 @@
         "promptType": "define",
         "text": "={{ $json.chatInput }}",
         "options": {
-          "systemMessage": "=You are Yoonie Ops, the assistant for hotel staff. You are talking to {{ $('Context').item.json.name }} ({{ $('Context').item.json.role }}{{ $('Context').item.json.jobTitle ? ', ' + $('Context').item.json.jobTitle : '' }}). Today is {{ $('Context').item.json.today }} (Bangkok).\n\nEverything you do runs as this person, through the same rules as the Yoonie app. If a tool says they aren't allowed, tell them plainly; don't try another way.\n\nTools:\n- todays_jobs: every job today (rooms, pickups, tours) with owner, status, deadline, ids. Use it first to find a room's roomId or a task's id.\n- move_room: change a room's cleaning state with its roomId. toStatus is IN_PROGRESS (start), CLEAN (done), INSPECTED (passed), or DIRTY (needs cleaning / failed inspection, reason required).\n- pickup_step: record a pickup step a driver phoned in: CONFIRMED, EN_ROUTE, AT_AIRPORT, GUEST_ON_BOARD, DROPPED_OFF.\n- answer_pickup_problem: answer a driver's problem: KEEP_WAITING (with instructions) or NO_SHOW.\n- tour_decision: KEEP, MERGE or CANCEL a low-fill tour departure (cancel needs a manager), with a note.\n- staff_list and assign_task: give a job to someone, or back to the open pool.\n\nRules: confirm what you changed and who was notified (from the tool's \"notified\" list). Before CANCEL or NO_SHOW, repeat what will happen and ask \"Shall I go ahead?\"; only act after a clear yes. Keep answers short; use room numbers and times, not ids."
+          "systemMessage": "=You are Yoonie Ops, the assistant for hotel staff. You are talking to {{ $('Context').item.json.name }} ({{ $('Context').item.json.role }}{{ $('Context').item.json.jobTitle ? ', ' + $('Context').item.json.jobTitle : '' }}). Today is {{ $('Context').item.json.today }} (Bangkok).\n\nWHERE THEY ARE: {{ $('Context').item.json.pageBrief }} The page shows {{ $('Context').item.json.pageDate }}.\n\nEverything you do runs as this person, through the same rules as the Yoonie app. If a tool says they aren't allowed, tell them plainly; don't try another way.\n\nTools:\n- rooms_now: every room right now: cleaning state, occupancy, current / next / departing stay, arrival ready-by, the room's job and owner, bills.\n- guests_now: guests in house, arriving, departing and in the next 7 days, with services and balances.\n- services_now: each transfer / tour / spa slot: capacity, booked, revenue vs cost, who is booked.\n- todays_jobs: every job today (rooms, pickups, tours) with owner, status, deadline, ids. Use it first to find a room's roomId or a task's id.\n- move_room: change a room's cleaning state with its roomId. toStatus is IN_PROGRESS (start), CLEAN (done), INSPECTED (passed), or DIRTY (needs cleaning / failed inspection, reason required).\n- pickup_step: record a pickup step a driver phoned in: CONFIRMED, EN_ROUTE, AT_AIRPORT, GUEST_ON_BOARD, DROPPED_OFF.\n- answer_pickup_problem: answer a driver's problem: KEEP_WAITING (with instructions) or NO_SHOW.\n- tour_decision: KEEP, MERGE or CANCEL a low-fill tour departure (cancel needs a manager), with a note.\n- staff_list and assign_task: give a job to someone, or back to the open pool.\n\nSAFETY, most important: only change something (move_room, pickup_step, answer_pickup_problem, tour_decision, assign_task) when the message clearly asks for that specific change AND names what it applies to (e.g. \"room 202 passed inspection\", \"give room 205 to Dao\"). Never act on vague, one-word, partial or unclear messages (\"dis\", \"rooms?\", \"late\") — answer with information, or ask what they want. Never change more than one room or job from a single message unless they list them; if they ask for a bulk change, list what you'd change and ask \"Shall I go ahead?\" first. Questions are never instructions: \"which rooms are dirty?\" means look, not change.\n\nRules: confirm what you changed and who was notified (from the tool's \"notified\" list). Before CANCEL or NO_SHOW, repeat what will happen and ask \"Shall I go ahead?\"; only act after a clear yes. Keep answers short; use room numbers and times, not ids."
         }
       },
-      "id": "6db1031a-9a59-46a4-bb17-0e08cbfcf8e1",
+      "id": "c053ecf5-f2ea-45c2-8c68-4806f190f3bd",
       "name": "Staff assistant",
       "type": "@n8n/n8n-nodes-langchain.agent",
       "typeVersion": 1.7,
@@ -136,7 +136,7 @@
         "responseBody": "={{ { reply: $json.output } }}",
         "options": {}
       },
-      "id": "28ce22ad-4a8a-44d0-a191-e5dbbc802296",
+      "id": "36634351-ee59-47f6-b061-5139f971d9a1",
       "name": "Reply",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
@@ -153,7 +153,7 @@
           "responseCode": 401
         }
       },
-      "id": "ee350dd3-4415-41e4-857b-48447c9e0d72",
+      "id": "4f1a41bc-3835-47d8-ae88-7470894907a5",
       "name": "Not signed in",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
@@ -174,7 +174,7 @@
           "temperature": 0.3
         }
       },
-      "id": "0bc0b415-53a3-4a2e-9335-c24700b3b3c7",
+      "id": "ddaba177-7c1a-482f-950e-380e8bb3eb8b",
       "name": "OpenAI (staff)",
       "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
       "typeVersion": 1.2,
@@ -195,7 +195,7 @@
         "sessionKey": "={{ 'staff:' + $('Context').item.json.userId + ':' + $('Context').item.json.sessionId }}",
         "contextWindowLength": 12
       },
-      "id": "1fa4a64d-d0d0-45e1-9945-ca3f3dfd2d7d",
+      "id": "627f2966-f292-445f-99fd-78ac166ae6f0",
       "name": "Staff memory",
       "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
       "typeVersion": 1.3,
@@ -237,13 +237,139 @@
           ]
         }
       },
-      "id": "f02f2267-bf52-48ed-b3f6-0280800b0c5f",
+      "id": "f14eed6c-0ac6-4dea-8c21-71b7075c3aca",
       "name": "todays_jobs",
       "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
       "typeVersion": 1.1,
       "position": [
         900,
         260
+      ]
+    },
+    {
+      "parameters": {
+        "toolDescription": "Every room right now: cleaning state, who is in it tonight, arrivals with ready-by times, departures, the room's job and owner, and bills.",
+        "method": "GET",
+        "url": "={{ $('Config').item.json.api }}/rooms/live-occupancy",
+        "sendQuery": true,
+        "specifyQuery": "keypair",
+        "parametersQuery": {
+          "values": [
+            {
+              "name": "branchId",
+              "valueProvider": "fieldValue",
+              "value": "={{ $('Context').item.json.branchId }}"
+            },
+            {
+              "name": "date",
+              "valueProvider": "fieldValue",
+              "value": "={{ $('Context').item.json.pageDate }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "specifyHeaders": "keypair",
+        "parametersHeaders": {
+          "values": [
+            {
+              "name": "Authorization",
+              "valueProvider": "fieldValue",
+              "value": "={{ $('Context').item.json.auth }}"
+            }
+          ]
+        }
+      },
+      "id": "7741dd17-5f10-4305-b51a-42fbb9716606",
+      "name": "rooms_now",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        900,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "toolDescription": "Guests in house, arriving, departing and due in the next 7 days, with their services and balances.",
+        "method": "GET",
+        "url": "={{ $('Config').item.json.api }}/ops-board/guests",
+        "sendQuery": true,
+        "specifyQuery": "keypair",
+        "parametersQuery": {
+          "values": [
+            {
+              "name": "branchId",
+              "valueProvider": "fieldValue",
+              "value": "={{ $('Context').item.json.branchId }}"
+            },
+            {
+              "name": "date",
+              "valueProvider": "fieldValue",
+              "value": "={{ $('Context').item.json.pageDate }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "specifyHeaders": "keypair",
+        "parametersHeaders": {
+          "values": [
+            {
+              "name": "Authorization",
+              "valueProvider": "fieldValue",
+              "value": "={{ $('Context').item.json.auth }}"
+            }
+          ]
+        }
+      },
+      "id": "25b532b6-3353-4a66-a36f-94b2bfd2f0d8",
+      "name": "guests_now",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        1060,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "toolDescription": "Each transfer, tour and spa slot for the day: capacity, booked, revenue against fixed cost, and who is booked.",
+        "method": "GET",
+        "url": "={{ $('Config').item.json.api }}/ops-board/services",
+        "sendQuery": true,
+        "specifyQuery": "keypair",
+        "parametersQuery": {
+          "values": [
+            {
+              "name": "branchId",
+              "valueProvider": "fieldValue",
+              "value": "={{ $('Context').item.json.branchId }}"
+            },
+            {
+              "name": "date",
+              "valueProvider": "fieldValue",
+              "value": "={{ $('Context').item.json.pageDate }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "specifyHeaders": "keypair",
+        "parametersHeaders": {
+          "values": [
+            {
+              "name": "Authorization",
+              "valueProvider": "fieldValue",
+              "value": "={{ $('Context').item.json.auth }}"
+            }
+          ]
+        }
+      },
+      "id": "0c5f5888-4c99-49f6-8cc3-e86fd2c3209a",
+      "name": "services_now",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        1220,
+        420
       ]
     },
     {
@@ -288,7 +414,7 @@
           ]
         }
       },
-      "id": "03771901-2283-46b9-b359-5713796e333b",
+      "id": "18aed9d5-90fd-4b27-88f0-ba9fae58e53c",
       "name": "move_room",
       "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
       "typeVersion": 1.1,
@@ -339,7 +465,7 @@
           ]
         }
       },
-      "id": "36c221ce-6f08-42f0-a9fe-44b7b477ae5a",
+      "id": "a7f8ef5e-f8cf-429c-a691-0d00891f3788",
       "name": "pickup_step",
       "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
       "typeVersion": 1.1,
@@ -390,7 +516,7 @@
           ]
         }
       },
-      "id": "e306e1da-53c7-47ac-a231-1d9ca9d1fa16",
+      "id": "3e2638fc-5237-455d-b349-a80c820140c9",
       "name": "answer_pickup_problem",
       "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
       "typeVersion": 1.1,
@@ -441,7 +567,7 @@
           ]
         }
       },
-      "id": "1ac0285e-0e24-4c1e-b54c-f477b38fb6cc",
+      "id": "46223c99-1502-4f38-891f-0a96082d7c96",
       "name": "tour_decision",
       "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
       "typeVersion": 1.1,
@@ -478,7 +604,7 @@
           ]
         }
       },
-      "id": "8863301a-c063-4bcb-acbc-0a6a9ce48f9c",
+      "id": "51350fb1-58f4-4ae5-a2a1-0f8fd87527e0",
       "name": "staff_list",
       "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
       "typeVersion": 1.1,
@@ -524,7 +650,7 @@
           ]
         }
       },
-      "id": "f5080aa6-122d-4a31-ad7a-f91548ec3ea0",
+      "id": "41f08ffd-9558-4639-a5c9-c4ae636c77ad",
       "name": "assign_task",
       "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
       "typeVersion": 1.1,
@@ -638,6 +764,39 @@
       ]
     },
     "todays_jobs": {
+      "ai_tool": [
+        [
+          {
+            "node": "Staff assistant",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "rooms_now": {
+      "ai_tool": [
+        [
+          {
+            "node": "Staff assistant",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "guests_now": {
+      "ai_tool": [
+        [
+          {
+            "node": "Staff assistant",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "services_now": {
       "ai_tool": [
         [
           {

@@ -47,6 +47,7 @@ export class AssistantController {
       req.headers.authorization ?? "",
       dto.sessionId,
       dto.message,
+      dto.context,
     );
   }
 }

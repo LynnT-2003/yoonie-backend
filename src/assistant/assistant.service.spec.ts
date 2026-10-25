@@ -41,9 +41,13 @@ describe("AssistantService", () => {
       "Bearer token-123",
       "s1234567",
       "What's late?",
+      { page: "rooms", roomNumber: "305" },
     );
     expect(res).toEqual({ reply: "Room 201 is late." });
     const init = fetchSpy.mock.calls[0][1]!;
+    expect(JSON.parse(init.body as string)).toMatchObject({
+      context: { page: "rooms", roomNumber: "305" },
+    });
     expect((init.headers as Record<string, string>).authorization).toBe(
       "Bearer token-123",
     );
