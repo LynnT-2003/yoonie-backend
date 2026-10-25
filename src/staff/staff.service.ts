@@ -490,8 +490,9 @@ export class StaffService implements IStaffService {
       target === CleaningStatus.DIRTY && current !== CleaningStatus.DIRTY;
 
     if (isInspection) {
+      // managers and admins inspect by role; anyone else needs the explicit permission
       const hasInspectPermission =
-        currentUser.isPlatformAdmin ||
+        isMgrOrAdmin ||
         (currentUser.permissions || []).includes(
           Permission.HOUSEKEEPING_INSPECT,
         );

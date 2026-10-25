@@ -76,7 +76,7 @@ A task must always answer five questions. A task that can't answer them shouldn'
 ### L4. Every change pings the right people, and only them
 Every state change produces a stored event (audit log) and, if it matters to someone else, a notification. Notifications follow the routing matrix (§6): never "everyone", never nobody when someone is waiting.
 
-- Notifications are created as `PENDING` through `NotificationsService.createNotification`. The worker delivers them by push or LINE, and they always land in the inbox. **[Built]** Delivery needs `WORKER_ENABLED`.
+- Notifications are created as `PENDING` through `NotificationsService.createNotification`. The worker delivers them by phone push, and they always land in the inbox. **[Built]** Delivery needs `WORKER_ENABLED`. LINE delivery exists in the worker but only fires for notifications that list the `line` channel, and none do yet. **[Not built]**
 - The actor is never notified about their own action. **[Built]**
 - The API response tells the caller who was notified (`notified: string[]`), so the screen can say so. Silence is never ambiguous. **[Built: room moves, assign, pickup steps, problem reports and answers]**
 
@@ -91,7 +91,8 @@ A worker who can't proceed raises a **structured issue** (a kind from a fixed li
 ### L6. Steps only move forward and every step is replay-safe
 Workers are often offline (the basement, the airport car park). The staff app queues actions and replays them later.
 
-- Repeating a step, or "moving" to an earlier one, is a 200 no-op. Never an error, never a regression. **[Built]** (room transitions, pickup steps)
+- Repeating a step is a 200 no-op. **[Built]** (room transitions, pickup steps)
+- Moving backwards: a pickup step that's behind the current one is a 200 no-op. A room move that isn't allowed (for example CLEAN → IN_PROGRESS) is a 409 that includes the room's current status, so the app drops the stale action instead of retrying it. Either way nothing regresses. **[Built]**
 - The only way back is an explicit, reasoned action, such as *Needs cleaning* or *Fail inspection*. These require a reason. **[Built]**
 - Mutating endpoints accept an `Idempotency-Key`. **[Built]** (staff endpoints)
 
@@ -184,10 +185,10 @@ So departures and stayovers get a task too.
 
 | Room | Task | Who may move it there |
 |---|---|---|
-| `DIRTY` | To do | anyone, from any state, **with a reason** (*Needs cleaning*, *Fail inspection*) |
+| `DIRTY` | To do | a housekeeper, supervisor or manager, from any state, **with a reason** (*Needs cleaning*, *Fail inspection*). Dispatchers can't move rooms. |
 | `IN_PROGRESS` | In progress | the housekeeper. Starting an unowned room claims it. |
 | `CLEAN` | Done (waiting for inspection) | the housekeeper |
-| `INSPECTED` | Done | BRANCH_MGR, ADMIN, or anyone with `housekeeping:inspect` |
+| `INSPECTED` | Done | BRANCH_MGR or ADMIN (by role), or anyone given `housekeeping:inspect` |
 
 
 ```mermaid
@@ -357,7 +358,7 @@ sequenceDiagram
 **Deadline** **[Built]**:
 - Due at landing (`etaAt`).
 - It's judged Tight if the 60-minute drive to the airport no longer fits before landing and the driver hasn't left.
-- After `GUEST_ON_BOARD` the countdown stops.
+- Once the driver reports `AT_AIRPORT` the promise is kept: the countdown stops and the pickup no longer counts as Tight or Late.
 
 **Constants:**
 - `AIRPORT_TO_HOTEL_MIN = 45` (`common/enums/pickup.enum.ts`) **[Built]**. It should become a branch setting **[Not built]**.
@@ -593,7 +594,7 @@ A robot is a worker whose app is an API client. It is assigned tasks the same wa
 | `STAFF` (housekeeper) | see their own rooms and the pool; claim by starting; move their room to `IN_PROGRESS` and `CLEAN`; send a room to `DIRTY` with a reason |
 | `STAFF` (driver) | see their pickups; report steps and issues on their own pickups |
 | `STAFF` with `housekeeping:inspect` | everything above, plus inspect (`INSPECTED`) |
-| `DISPATCHER` | see Dispatch; assign; answer issues; Keep or Merge tour departures; record pickup steps on a driver's behalf; can't move rooms |
+| `DISPATCHER` | see Dispatch; assign; answer issues; Keep or Merge tour departures; record pickup steps on a driver's behalf; can't move rooms (including *Needs cleaning*) |
 | `BRANCH_MGR` / `ADMIN` | everything in their branches, including room moves, inspection and **cancelling tour departures** |
 
 Job titles (`HOUSEKEEPER`, `DRIVER`, front desk) currently stand in for capabilities (L9).
