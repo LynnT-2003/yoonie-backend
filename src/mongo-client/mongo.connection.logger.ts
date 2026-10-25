@@ -1,6 +1,6 @@
 import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
 import { InjectConnection } from "@nestjs/mongoose";
-import { Connection } from "mongoose";
+import { Connection, ConnectionStates } from "mongoose";
 
 // Matches the placeholder MONGODB_URI shipped by yulio.manifest.json's db-mongoose
 // module. Anchored to "user:password@cluster.mongodb.net" so a real Atlas URL
@@ -38,6 +38,26 @@ export class MongoConnectionLogger implements OnModuleInit {
     @InjectConnection()
     private readonly dbConnection: Connection,
   ) {}
+
+  /**
+   * The driver never retries a first connect that failed (an established
+   * connection reconnects by itself). Keep trying until it succeeds, so a
+   * blip at boot doesn't leave every query buffering until it times out.
+   */
+  private retryFirstConnect() {
+    const uri = process.env.MONGODB_URI;
+    if (this.hasEverConnected || isPlaceholderOrUnset(uri)) return;
+    setTimeout(() => {
+      if (
+        this.hasEverConnected ||
+        this.dbConnection.readyState === ConnectionStates.connected
+      )
+        return;
+      this.dbConnection.openUri(uri!).catch(() => {
+        // the 'error' handler schedules the next attempt
+      });
+    }, 2000).unref();
+  }
 
   onModuleInit() {
     this.dbConnection.on("connected", () => {
@@ -79,6 +99,7 @@ export class MongoConnectionLogger implements OnModuleInit {
       // who need the full stack can flip the connection adapter's log level.
       const code = (err as { code?: string }).code ?? "unknown";
       this.logger.debug?.(`Mongo connect rejected — ${err.name} (${code})`);
+      this.retryFirstConnect();
     });
 
     this.dbConnection.on("disconnected", () => {
