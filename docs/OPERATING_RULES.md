@@ -22,6 +22,23 @@ Three outcomes we're accountable for:
 2. **Nothing happens blindly.** Every task has an owner, a deadline, a next step and an escalation path. Every change pings the right people, and only them.
 3. **Everything is evidence.** Each step is a timestamped, structured event with a known actor. That's what makes analytics, AI and automation possible.
 
+### The loop, in one picture
+
+```mermaid
+flowchart LR
+    B["Guest books<br/>(web / LINE)"] --> P["Planner<br/>creates tasks"]
+    P --> T["Task<br/>owner · deadline · next step"]
+    T -->|"pushed to phone"| W["Worker<br/>(housekeeper · driver · guide · robot)"]
+    W -->|"reports each step<br/>from where the work is"| Y["Yoonie"]
+    W -->|"raises a problem"| Y
+    Y -->|"ping: only the people<br/>who need to act"| D["Desk / manager / next worker"]
+    D -->|"answers problems ·<br/>assigns · decides"| Y
+    Y -->|"live board"| WEB["Web dashboard"]
+    Y -->|"every step = event"| A["Audit + data<br/>→ analytics · AI"]
+```
+
+Workers report. Yoonie routes. The desk answers. Everything is recorded.
+
 ---
 
 ## 2. The laws
@@ -120,6 +137,27 @@ A worker sees and acts only within their branches. An assignee must belong to th
 
 ## 4. Job types
 
+### Every task, the same lifecycle
+
+```mermaid
+stateDiagram-v2
+    direction LR
+    [*] --> ToDo: planner creates
+    ToDo --> InProgress: worker starts
+    InProgress --> Done: worker finishes
+    InProgress --> Problem: worker can't continue
+    Problem --> InProgress: desk says keep going
+    Problem --> Dismissed: desk says stop
+    ToDo --> Dismissed: no longer needed
+    Done --> [*]
+    Dismissed --> [*]
+    state "Problem raised" as Problem
+    state "To do" as ToDo
+    state "In progress" as InProgress
+```
+
+Ownership (assign / claim) can change any time before Done. Each job type defines its own **steps** inside *In progress*. The shared status (To do / In progress / Done / Dismissed) is derived from the step and never set directly.
+
 ### 4.1 Room turnaround: `HOUSEKEEPING_TURNAROUND`
 
 **Purpose:** a room is inspected and ready before its guest walks in.
@@ -138,6 +176,20 @@ So departures and stayovers get a task too.
 | `IN_PROGRESS` | In progress | the housekeeper. Starting an unowned room claims it. |
 | `CLEAN` | Done (waiting for inspection) | the housekeeper |
 | `INSPECTED` | Done | BRANCH_MGR, ADMIN, or anyone with `housekeeping:inspect` |
+
+
+```mermaid
+stateDiagram-v2
+    direction LR
+    [*] --> DIRTY: checkout / planner
+    DIRTY --> IN_PROGRESS: housekeeper taps Start<br/>(claims it if unowned)
+    IN_PROGRESS --> CLEAN: housekeeper taps Done<br/>→ ping inspectors
+    CLEAN --> INSPECTED: supervisor passes<br/>→ ping housekeeper
+    CLEAN --> DIRTY: supervisor fails + reason<br/>→ CRITICAL ping housekeeper
+    INSPECTED --> DIRTY: "needs cleaning" + reason
+    IN_PROGRESS --> DIRTY: + reason
+    INSPECTED --> [*]: guest checks in
+```
 
 Allowed moves: `DIRTY→IN_PROGRESS→CLEAN→INSPECTED`, and `any→DIRTY` with a reason. Anything else is 409.
 
@@ -181,6 +233,62 @@ Allowed moves: `DIRTY→IN_PROGRESS→CLEAN→INSPECTED`, and `any→DIRTY` with
 | `GUEST_ON_BOARD` | "Guest is with me" | In progress |
 | `DROPPED_OFF` | "Dropped at the hotel" | Done |
 
+
+```mermaid
+stateDiagram-v2
+    direction LR
+    [*] --> ASSIGNED: planner / desk picks driver<br/>→ driver gets card
+    ASSIGNED --> CONFIRMED: driver taps Accept
+    CONFIRMED --> EN_ROUTE: Leaving for airport
+    EN_ROUTE --> AT_AIRPORT: At arrivals door
+    AT_AIRPORT --> GUEST_ON_BOARD: Guest is with me<br/>→ desk ETA · housekeeping if room not ready
+    GUEST_ON_BOARD --> DROPPED_OFF: Dropped at hotel<br/>→ desk "guest at lobby"
+    CONFIRMED --> ASSIGNED: new driver / flight re-timed<br/>(must accept again)
+    DROPPED_OFF --> [*]
+```
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Driver as Driver (app)
+    participant Y as Yoonie
+    actor Desk as Desk (web)
+    actor HK as Housekeeper (app)
+
+    Y->>Driver: Pickup card (flight, door, guest sign)
+    Desk-->>Y: sees "Waiting for Prasit to accept"
+    Driver->>Y: Accept
+    Desk-->>Y: sees "Prasit accepted"
+    Driver->>Y: Leaving for airport
+    Driver->>Y: At arrivals, door 4
+    Driver->>Y: Guest is with me
+    Y->>Desk: "Hiroshi picked up — at hotel ~15:45 · Room 305 still being cleaned"
+    Y->>HK: CRITICAL "Room 305: guest arrives ~15:45"
+    Driver->>Y: Dropped at hotel
+    Y->>Desk: "Hiroshi is at the lobby"
+```
+
+**When something goes wrong:**
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Driver as Driver (app)
+    participant Y as Yoonie
+    actor Desk as Desk (web)
+
+    Driver->>Y: Problem: can't find the guest
+    Y->>Desk: CRITICAL "EK 372: can't find the guest"
+    alt Desk: Keep waiting
+        Desk->>Y: Keep waiting — "flight delayed, now 15:10"
+        Y->>Driver: "Keep waiting for Hiroshi: flight delayed, now 15:10"
+    else Desk: No-show
+        Desk->>Y: No-show
+        Y->>Driver: "Stand down: EK 372 marked no-show"
+        Note over Y: task Dismissed
+    end
+```
+
 **Rules** **[Built]**:
 - Forward only. Repeats and backwards moves are no-ops (L6).
 - Skipping forward is allowed, for a driver who forgot to tap, and only the reached stage is recorded.
@@ -222,6 +330,18 @@ Allowed moves: `DIRTY→IN_PROGRESS→CLEAN→INSPECTED`, and `any→DIRTY` with
 - It's raised when `booked < minViablePax`, or the fill rate is below the branch `consolidationThreshold` (default 0.4).
 - It's cleared automatically when the departure fills.
 - Projected loss = `fixedCostThb − booked × unitPrice`.
+
+
+```mermaid
+flowchart LR
+    BK["Tour line booked<br/>or changed"] --> E{"booked &lt; min pax<br/>or fill &lt; threshold?"}
+    E -->|no| CLR["no flag<br/>(stale flag cleared)"]
+    E -->|yes| F["Fill flag on Dispatch<br/>fill · revenue vs cost · projected loss"]
+    F --> DEC{"Desk decides"}
+    DEC -->|KEEP| K["Runs as planned"]
+    DEC -->|"MERGE + note"| M["Recorded<br/>front desk moves guests"]
+    DEC -->|"CANCEL + note"| C["Recorded<br/>front desk refunds / moves"]
+```
 
 **Decision** **[Built]** (L8):
 - The desk records `KEEP`, `MERGE` or `CANCEL` with a note (`POST /dispatch/:id/decision`).
