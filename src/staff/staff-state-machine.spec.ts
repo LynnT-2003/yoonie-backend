@@ -208,6 +208,28 @@ describe("StaffService - State Machine & Offline Replay Safety", () => {
     expect(result.cleaningStatus).toBe(CleaningStatus.INSPECTED);
   });
 
+  it("lets a branch manager inspect by role, even without the explicit permission", async () => {
+    const mockRoom = {
+      _id: new Types.ObjectId(roomId),
+      roomNumber: "101",
+      branchId: new Types.ObjectId(branchId),
+      cleaningStatus: CleaningStatus.CLEAN,
+      save: jest.fn().mockResolvedValue(true),
+    };
+    mockRoomModel.findById.mockReturnValue({
+      exec: jest.fn().mockResolvedValue(mockRoom),
+    });
+    mockDispatchModel.findOne.mockReturnValue({
+      exec: jest.fn().mockResolvedValue(null),
+    });
+
+    const invitedManager: ICurrentUser = { ...managerUser, permissions: [] };
+    const result = await service.transitionRoom(invitedManager, roomId, {
+      toStatus: CleaningStatus.INSPECTED,
+    });
+    expect(result.cleaningStatus).toBe(CleaningStatus.INSPECTED);
+  });
+
   it("should require reason when failing inspection back to DIRTY", async () => {
     const mockRoom = {
       _id: new Types.ObjectId(roomId),

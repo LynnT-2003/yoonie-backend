@@ -2,7 +2,6 @@ import { Injectable } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model, Types } from "mongoose";
 import { Room, RoomDocument } from "./entity/room.entity";
-import { CleaningStatus } from "../common/enums/cleaning-status.enum";
 
 @Injectable()
 export class RoomRepo {
@@ -29,26 +28,6 @@ export class RoomRepo {
 
   async findAllByBranch(branchId: Types.ObjectId): Promise<RoomDocument[]> {
     return this.roomModel.find({ branchId }).sort({ roomNumber: 1 }).exec();
-  }
-
-  async updateCleaning(
-    roomId: Types.ObjectId,
-    status: CleaningStatus,
-    updatedBy?: Types.ObjectId,
-  ): Promise<RoomDocument | null> {
-    return this.roomModel
-      .findByIdAndUpdate(
-        roomId,
-        {
-          $set: {
-            cleaningStatus: status,
-            cleaningUpdatedAt: new Date(),
-            ...(updatedBy ? { cleaningUpdatedBy: updatedBy } : {}),
-          },
-        },
-        { new: true },
-      )
-      .exec();
   }
 
   async addImages(
