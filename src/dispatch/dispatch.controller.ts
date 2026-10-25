@@ -6,6 +6,7 @@ import {
   HttpStatus,
   Param,
   Patch,
+  Post,
   Query,
   UseInterceptors,
 } from "@nestjs/common";
@@ -24,6 +25,11 @@ import { resolveScopedBranchIds } from "../common/helpers/branch-access.helper";
 import { DispatchService } from "./dispatch.service";
 import { UpdateDispatchStatusDto } from "./dto/requests/update-dispatch-status.dto";
 import { QueryDispatchDto } from "./dto/requests/query-dispatch.dto";
+import {
+  AssignTaskDto,
+  TourDecisionDto,
+  ResolvePickupIssueDto,
+} from "./dto/requests/task-actions.dto";
 import { DispatchTaskResponseDto } from "./dto/responses/dispatch-task-response.dto";
 import { IdempotencyInterceptor } from "../staff/interceptors/idempotency.interceptor";
 
@@ -48,7 +54,7 @@ export class DispatchController {
     @Query() query: QueryDispatchDto,
   ) {
     const scopedBranchIds = resolveScopedBranchIds(user, query.branchId);
-    return this.dispatchService.findByServiceDate(
+    return this.dispatchService.listTasks(
       scopedBranchIds,
       query.serviceDate,
       query.status,
@@ -71,7 +77,9 @@ export class DispatchController {
     required: false,
   })
   @ApiOperation({
-    summary: "Update dispatch task status (acknowledge, in progress, done)",
+    summary: "Move a pickup or tour task (OPEN, IN_PROGRESS, DONE, DISMISSED)",
+    description:
+      "Room turnarounds are rejected with 409: they follow the room via POST /staff/rooms/:id/transition. ACKNOWLEDGED is retired.",
   })
   @ApiResponse({
     status: 200,
@@ -89,5 +97,63 @@ export class DispatchController {
       dto.status,
       dto.assigneeUserId,
     );
+  }
+
+  @Roles(
+    UserRole.ADMIN,
+    UserRole.BRANCH_MGR,
+    UserRole.DISPATCHER,
+    UserRole.STAFF,
+  )
+  @UseInterceptors(IdempotencyInterceptor)
+  @Post(":id/claim")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Take an unassigned task from the open pool" })
+  async claim(@CurrentUser() user: ICurrentUser, @Param("id") id: string) {
+    return this.dispatchService.claim(user, id);
+  }
+
+  @Roles(UserRole.ADMIN, UserRole.BRANCH_MGR, UserRole.DISPATCHER)
+  @Patch(":id/assign")
+  @ApiOperation({
+    summary:
+      "Assign a task to a staff member (or null to return it to the pool); notifies them",
+  })
+  async assign(
+    @CurrentUser() user: ICurrentUser,
+    @Param("id") id: string,
+    @Body() dto: AssignTaskDto,
+  ) {
+    return this.dispatchService.assign(user, id, dto.assigneeUserId ?? null);
+  }
+
+  @Roles(UserRole.ADMIN, UserRole.BRANCH_MGR, UserRole.DISPATCHER)
+  @Post(":id/pickup-issue")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      "Answer a driver's problem report: keep waiting, or close the pickup as a no-show",
+  })
+  async resolvePickupIssue(
+    @CurrentUser() user: ICurrentUser,
+    @Param("id") id: string,
+    @Body() dto: ResolvePickupIssueDto,
+  ) {
+    return this.dispatchService.resolvePickupIssue(user, id, dto);
+  }
+
+  @Roles(UserRole.ADMIN, UserRole.BRANCH_MGR, UserRole.DISPATCHER)
+  @Post(":id/decision")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      "Close a tour fill flag with a decision: keep running, merge or cancel the departure",
+  })
+  async decide(
+    @CurrentUser() user: ICurrentUser,
+    @Param("id") id: string,
+    @Body() dto: TourDecisionDto,
+  ) {
+    return this.dispatchService.decideTour(user, id, dto);
   }
 }

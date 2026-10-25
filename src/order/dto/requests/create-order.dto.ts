@@ -2,6 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { Type } from "class-transformer";
 import {
   IsArray,
+  IsDate,
   IsEnum,
   IsInt,
   IsMongoId,
@@ -136,6 +137,8 @@ export class FlightInfoInputDto {
   direction!: "ARRIVAL" | "DEPARTURE";
 
   @ApiProperty({ example: "2026-10-20T14:30:00.000Z" })
+  @Type(() => Date)
+  @IsDate()
   scheduledAt!: Date;
 
   @ApiPropertyOptional({ example: "Terminal 1" })
@@ -210,9 +213,13 @@ export class OrderLineInputDto {
   unitPriceThb!: number;
 
   @ApiProperty({ example: "2026-10-20T07:00:00.000Z" })
+  @Type(() => Date)
+  @IsDate()
   startsAt!: Date;
 
   @ApiPropertyOptional({ example: "2026-10-22T05:00:00.000Z" })
+  @Type(() => Date)
+  @IsDate()
   @IsOptional()
   endsAt?: Date;
 
@@ -285,6 +292,14 @@ export class CreateOrderDto {
   @ValidateNested({ each: true })
   @Type(() => OrderLineInputDto)
   lines!: OrderLineInputDto[];
+
+  @ApiPropertyOptional({
+    example: "665a1b2c3d4e5f6a7b8c9d5e",
+    description: "Inventory hold returned by POST /inventory/hold",
+  })
+  @IsMongoId()
+  @IsOptional()
+  holdId?: string;
 
   @ApiPropertyOptional({ type: AttributionInputDto })
   @ValidateNested()

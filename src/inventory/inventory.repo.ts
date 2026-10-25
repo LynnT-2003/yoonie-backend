@@ -88,6 +88,19 @@ export class InventoryRepo {
     return res.modifiedCount;
   }
 
+  /** Books capacity directly (no hold), used when staff move an existing booking to another slot. */
+  async incrementBooked(slotKey: string, qty: number): Promise<number> {
+    const res = await this.slotModel.updateOne(
+      {
+        slotKey,
+        status: SlotStatus.OPEN,
+        $expr: { $lte: [{ $add: ["$held", "$booked", qty] }, "$capacity"] },
+      },
+      { $inc: { booked: qty } },
+    );
+    return res.modifiedCount;
+  }
+
   async returnBooked(
     slotKey: string,
     qty: number,

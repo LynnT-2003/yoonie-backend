@@ -26,4 +26,17 @@ export class RoomTransitionResponseDto {
     description: "True if state was already matched and operation was a no-op",
   })
   isNoOp!: boolean;
+
+  @ApiPropertyOptional({
+    example: "Noi",
+    description: "Who now holds the room's job",
+  })
+  assigneeName?: string;
+
+  @ApiPropertyOptional({
+    type: [String],
+    example: ["Somchai"],
+    description: "People notified about this change (push/LINE + inbox)",
+  })
+  notified?: string[];
 }

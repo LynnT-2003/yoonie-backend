@@ -1,5 +1,6 @@
 import {
   Body,
+  ConflictException,
   Controller,
   Delete,
   Get,
@@ -21,7 +22,7 @@ import {
 import { Throttle } from "@nestjs/throttler";
 import { Types } from "mongoose";
 import { Public } from "../common/decorators/public.decorator";
-import { InventoryService } from "./inventory.service";
+import { InventoryService, SlotUnavailableError } from "./inventory.service";
 import { CreateHoldDto } from "./dto/requests/create-hold.dto";
 import { CheckAvailabilityQueryDto } from "./dto/requests/check-availability.dto";
 import { InventoryHoldResponseDto } from "./dto/responses/inventory-hold-response.dto";
@@ -71,12 +72,32 @@ export class InventoryController {
     type: InventoryHoldResponseDto,
   })
   async createHold(@Body() dto: CreateHoldDto) {
-    return this.inventoryService.hold(
-      new Types.ObjectId(dto.branchId),
-      dto.cartId,
-      dto.lines,
-      dto.ttlMinutes ?? 15,
-    );
+    const branchId = new Types.ObjectId(dto.branchId);
+    const ttl = dto.ttlMinutes ?? 15;
+    try {
+      if (dto.stays?.length || dto.services?.length) {
+        return await this.inventoryService.holdItems(
+          branchId,
+          dto.cartId,
+          dto.stays ?? [],
+          dto.services ?? [],
+          ttl,
+        );
+      }
+      return await this.inventoryService.hold(
+        branchId,
+        dto.cartId,
+        dto.lines ?? [],
+        ttl,
+      );
+    } catch (err) {
+      if (err instanceof SlotUnavailableError) {
+        throw new ConflictException(
+          "Sold out for one or more of the selected nights",
+        );
+      }
+      throw err;
+    }
   }
 
   @Public()

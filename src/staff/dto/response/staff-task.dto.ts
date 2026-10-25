@@ -1,6 +1,35 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { CleaningStatus } from "../../../common/enums/cleaning-status.enum";
 import { DispatchStatus } from "../../../common/enums/dispatch.enum";
+import {
+  PickupIssueKind,
+  PickupStage,
+} from "../../../common/enums/pickup.enum";
+
+export class PickupStepItemDto {
+  @ApiProperty({ enum: PickupStage })
+  stage!: PickupStage;
+
+  @ApiProperty({ example: "2026-10-20T13:05:00.000Z" })
+  at!: Date;
+
+  @ApiPropertyOptional({ example: "Prasit Kaew" })
+  byName?: string;
+
+  @ApiPropertyOptional()
+  note?: string;
+}
+
+export class PickupIssueItemDto {
+  @ApiProperty({ enum: PickupIssueKind })
+  kind!: PickupIssueKind;
+
+  @ApiPropertyOptional()
+  note?: string;
+
+  @ApiProperty()
+  at!: Date;
+}
 
 export class HousekeepingTaskDto {
   @ApiProperty({ example: "665a1b2c3d4e5f6a7b8c9d7a" })
@@ -41,6 +70,16 @@ export class HousekeepingTaskDto {
 
   @ApiPropertyOptional({ example: "TG917" })
   flightNumber?: string;
+
+  @ApiPropertyOptional({
+    description: "Who claimed the room; absent while it's in the open pool",
+  })
+  assigneeUserId?: string;
+
+  @ApiPropertyOptional({
+    description: "True when the current user owns this room's work",
+  })
+  isMine?: boolean;
 }
 
 export class PickupTaskDto {
@@ -81,6 +120,18 @@ export class PickupTaskDto {
     en: string;
     th: string;
   };
+
+  @ApiProperty({ enum: PickupStage, example: PickupStage.CONFIRMED })
+  stage!: PickupStage;
+
+  @ApiProperty({ type: [PickupStepItemDto] })
+  steps!: PickupStepItemDto[];
+
+  @ApiPropertyOptional({
+    type: PickupIssueItemDto,
+    description: "An open problem the desk hasn't answered yet",
+  })
+  issue?: PickupIssueItemDto;
 }
 
 export class StaffTasksResponseDto {

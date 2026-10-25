@@ -1,4 +1,7 @@
-import { Notification, NotificationSchema } from "../notifications/entity/notification.entity";
+import {
+  Notification,
+  NotificationSchema,
+} from "../notifications/entity/notification.entity";
 import { User, UserSchema } from "../user/entity/user.entity";
 import { Module } from "@nestjs/common";
 import { MongooseModule } from "@nestjs/mongoose";
@@ -17,6 +20,7 @@ import {
 import { Room, RoomSchema } from "../room/entity/room.entity";
 import { Branch, BranchSchema } from "../branch/entity/branch.entity";
 import { UserModule } from "../user/user.module";
+import { NotificationsModule } from "../notifications/notifications.module";
 
 @Module({
   imports: [
@@ -29,6 +33,7 @@ import { UserModule } from "../user/user.module";
       { name: Notification.name, schema: NotificationSchema },
     ]),
     UserModule,
+    NotificationsModule,
   ],
   controllers: [StaffController],
   providers: [StaffService, IdempotencyInterceptor],

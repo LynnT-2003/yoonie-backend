@@ -1,5 +1,6 @@
 import { ForbiddenException } from "@nestjs/common";
 import { Types } from "mongoose";
+import { DispatchStatus } from "../common/enums/dispatch.enum";
 import { StaffService } from "./staff.service";
 import { CleaningStatus } from "../common/enums/cleaning-status.enum";
 import { UserRole } from "../common/enums/user-role.enum";
@@ -24,6 +25,14 @@ describe("StaffService - Branch Isolation", () => {
       findOne: jest.fn(),
       find: jest.fn(),
       findById: jest.fn(),
+      // rooms changed without a task get today's turnaround upserted
+      findOneAndUpdate: jest.fn().mockReturnValue({
+        exec: jest.fn().mockResolvedValue({
+          _id: new Types.ObjectId(),
+          status: DispatchStatus.OPEN,
+          save: jest.fn().mockResolvedValue(true),
+        }),
+      }),
     };
     mockBranchModel = {
       findById: jest.fn(),

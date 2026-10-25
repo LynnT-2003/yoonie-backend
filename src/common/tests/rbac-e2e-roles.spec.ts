@@ -107,7 +107,7 @@ describe("E2E Role Matrix & Idempotency Replay (Requirements b & f)", () => {
   };
 
   const mockDispatchService = {
-    findByServiceDate: jest.fn().mockResolvedValue([]),
+    listTasks: jest.fn().mockResolvedValue([]),
     updateStatus: jest.fn().mockResolvedValue({ status: "IN_PROGRESS" }),
   };
 

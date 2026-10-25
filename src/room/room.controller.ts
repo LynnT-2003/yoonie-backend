@@ -33,6 +33,7 @@ import { CreateRoomDto } from "./dto/requests/create-room.dto";
 import { UpdateRoomDto } from "./dto/requests/update-room.dto";
 import { RoomResponseDto } from "./dto/responses/room-response.dto";
 import { HousekeepingBoardResponseDto } from "./dto/responses/housekeeping-board-response.dto";
+import { LiveOccupancyResponseDto } from "./dto/responses/live-occupancy-response.dto";
 
 @ApiTags("Rooms & Housekeeping")
 @ApiBearerAuth("JWT-auth")
@@ -56,6 +57,38 @@ export class RoomController {
       throw new BadRequestException("Query parameter 'branchId' is required");
     }
     return this.roomService.getRoomTypesCatalog(branchId);
+  }
+
+  @Roles(
+    UserRole.ADMIN,
+    UserRole.BRANCH_MGR,
+    UserRole.DISPATCHER,
+    UserRole.STAFF,
+  )
+  @Get("live-occupancy")
+  @ApiOperation({
+    summary:
+      "Get complete live room visibility, occupancy matrix, and multi-day tape chart timeline",
+    description:
+      "Returns all physical rooms for the branch enriched with live occupancy state, current active booking, VIP guest profiles, flight ETAs, cleaning status, linked dispatches, and multi-day tape chart timeline.",
+  })
+  @ApiResponse({
+    status: 200,
+    description: "Live occupancy matrix, timeline, and summary KPIs",
+    type: LiveOccupancyResponseDto,
+  })
+  async getLiveOccupancy(
+    @CurrentUser() user: ICurrentUser,
+    @Query("branchId") branchId?: string,
+    @Query("date") date?: string,
+    @Query("from") from?: string,
+    @Query("to") to?: string,
+  ) {
+    const [scopedBranchId] = resolveScopedBranchIds(user, branchId);
+    if (!scopedBranchId) {
+      throw new BadRequestException("branchId is required");
+    }
+    return this.roomService.getLiveOccupancy(scopedBranchId, date, from, to);
   }
 
   @Roles(UserRole.ADMIN, UserRole.BRANCH_MGR)

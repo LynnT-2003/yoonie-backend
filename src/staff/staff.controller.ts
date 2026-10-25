@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -7,6 +8,7 @@ import {
   HttpStatus,
   Param,
   Post,
+  Query,
   Req,
   UseInterceptors,
 } from "@nestjs/common";
@@ -26,6 +28,7 @@ import { CurrentUser } from "../common/decorators/current-user.decorator";
 import { Public } from "../common/decorators/public.decorator";
 import { UserRole } from "../common/enums/user-role.enum";
 import { ICurrentUser } from "../common/interfaces/user.interface";
+import { resolveScopedBranchIds } from "../common/helpers/branch-access.helper";
 import {
   ApiErrorResponse,
   ApiSuccessResponse,
@@ -35,6 +38,7 @@ import { RoomTransitionDto } from "./dto/request/room-transition.dto";
 import { StaffTasksResponseDto } from "./dto/response/staff-task.dto";
 import { RoomTransitionResponseDto } from "./dto/response/room-transition-response.dto";
 import { PickupTaskResponseDto } from "./dto/response/pickup-task-response.dto";
+import { PickupIssueDto, PickupStepDto } from "./dto/request/pickup-step.dto";
 import { LineLinkTokenResponseDto } from "./dto/response/line-link-token-response.dto";
 
 @ApiTags("Staff Operations")
@@ -48,6 +52,18 @@ import { LineLinkTokenResponseDto } from "./dto/response/line-link-token-respons
 @Controller("staff")
 export class StaffController {
   constructor(private readonly staffService: StaffService) {}
+
+  @Roles(UserRole.ADMIN, UserRole.BRANCH_MGR, UserRole.DISPATCHER)
+  @Get("roster")
+  @ApiOperation({ summary: "Active staff on a branch, for assigning tasks" })
+  async roster(
+    @CurrentUser() user: ICurrentUser,
+    @Query("branchId") branchId?: string,
+  ) {
+    const [id] = resolveScopedBranchIds(user, branchId);
+    if (!id) throw new BadRequestException("branchId is required");
+    return this.staffService.roster(id);
+  }
 
   @Get("me/tasks")
   @Roles(
@@ -91,6 +107,63 @@ export class StaffController {
     @Body() dto: RoomTransitionDto,
   ): Promise<RoomTransitionResponseDto> {
     return this.staffService.transitionRoom(user, id, dto);
+  }
+
+  @Post("pickups/:id/step")
+  @Roles(
+    UserRole.STAFF,
+    UserRole.DISPATCHER,
+    UserRole.BRANCH_MGR,
+    UserRole.ADMIN,
+  )
+  @UseInterceptors(IdempotencyInterceptor)
+  @ApiHeader({
+    name: "Idempotency-Key",
+    description: "Unique idempotency key for offline replay protection",
+    required: false,
+  })
+  @ApiOperation({
+    summary:
+      "Record the step an airport pickup has reached (accepted, en route, at the door, guest on board, dropped off)",
+  })
+  @ApiResponse(ApiSuccessResponse(PickupTaskResponseDto))
+  @ApiResponse(ApiErrorResponse(403, "Forbidden"))
+  @ApiResponse(ApiErrorResponse(404, "Pickup not found"))
+  @ApiResponse(ApiErrorResponse(409, "Pickup closed or has no driver"))
+  async recordPickupStep(
+    @CurrentUser() user: ICurrentUser,
+    @Param("id") id: string,
+    @Body() dto: PickupStepDto,
+  ): Promise<PickupTaskResponseDto> {
+    return this.staffService.recordPickupStep(user, id, dto);
+  }
+
+  @Post("pickups/:id/issue")
+  @Roles(
+    UserRole.STAFF,
+    UserRole.DISPATCHER,
+    UserRole.BRANCH_MGR,
+    UserRole.ADMIN,
+  )
+  @UseInterceptors(IdempotencyInterceptor)
+  @ApiHeader({
+    name: "Idempotency-Key",
+    description: "Unique idempotency key for offline replay protection",
+    required: false,
+  })
+  @ApiOperation({
+    summary:
+      "Driver reports a problem (flight delayed, guest not found, vehicle); alerts the desk",
+  })
+  @ApiResponse(ApiSuccessResponse(PickupTaskResponseDto))
+  @ApiResponse(ApiErrorResponse(403, "Forbidden"))
+  @ApiResponse(ApiErrorResponse(409, "Pickup closed"))
+  async reportPickupIssue(
+    @CurrentUser() user: ICurrentUser,
+    @Param("id") id: string,
+    @Body() dto: PickupIssueDto,
+  ): Promise<PickupTaskResponseDto> {
+    return this.staffService.reportPickupIssue(user, id, dto);
   }
 
   @Post("pickups/:id/start")

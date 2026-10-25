@@ -19,6 +19,7 @@ describe("StaffService - State Machine & Offline Replay Safety", () => {
   let mockUserService: any;
   let mockConfigService: any;
   let mockConnection: any;
+  let upsertedTask: any;
 
   const branchId = new Types.ObjectId().toString();
   const roomId = new Types.ObjectId().toString();
@@ -52,10 +53,19 @@ describe("StaffService - State Machine & Offline Replay Safety", () => {
     mockRoomModel = {
       findById: jest.fn(),
     };
+    upsertedTask = {
+      _id: new Types.ObjectId(),
+      status: DispatchStatus.OPEN,
+      assigneeUserId: undefined,
+      save: jest.fn().mockResolvedValue(true),
+    };
     mockDispatchModel = {
       findOne: jest.fn(),
       find: jest.fn(),
       findById: jest.fn(),
+      findOneAndUpdate: jest.fn().mockReturnValue({
+        exec: jest.fn().mockResolvedValue(upsertedTask),
+      }),
     };
     mockBranchModel = {
       findById: jest.fn(),
@@ -220,12 +230,103 @@ describe("StaffService - State Machine & Offline Replay Safety", () => {
       }),
     ).rejects.toThrow(BadRequestException);
 
-    // With reason -> succeeds
+    // With reason -> succeeds, and the room gets today's turnaround back in the queue
     const result = await service.transitionRoom(managerUser, roomId, {
       toStatus: CleaningStatus.DIRTY,
       reason: "Found hair in bathroom sink",
     });
     expect(result.cleaningStatus).toBe(CleaningStatus.DIRTY);
+    expect(mockDispatchModel.findOneAndUpdate).toHaveBeenCalled();
+    expect(upsertedTask.status).toBe(DispatchStatus.OPEN);
+    expect(upsertedTask.assigneeUserId).toBeUndefined();
+  });
+
+  describe("open pool", () => {
+    const dirtyRoom = () => ({
+      _id: new Types.ObjectId(roomId),
+      roomNumber: "101",
+      branchId: new Types.ObjectId(branchId),
+      cleaningStatus: CleaningStatus.DIRTY,
+      save: jest.fn().mockResolvedValue(true),
+    });
+
+    it("claims an unassigned room for the housekeeper who starts it", async () => {
+      mockRoomModel.findById.mockReturnValue({
+        exec: jest.fn().mockResolvedValue(dirtyRoom()),
+      });
+      const task = {
+        _id: new Types.ObjectId(),
+        status: DispatchStatus.OPEN,
+        save: jest.fn(),
+      } as any;
+      mockDispatchModel.findOne.mockReturnValue({
+        exec: jest.fn().mockResolvedValue(task),
+      });
+
+      await service.transitionRoom(housekeeperUser, roomId, {
+        toStatus: CleaningStatus.IN_PROGRESS,
+      });
+
+      expect(task.status).toBe(DispatchStatus.IN_PROGRESS);
+      expect(String(task.assigneeUserId)).toBe(staffUserId);
+    });
+
+    it("does not make a manager the owner when they move an unassigned room", async () => {
+      mockRoomModel.findById.mockReturnValue({
+        exec: jest.fn().mockResolvedValue(dirtyRoom()),
+      });
+      const task = {
+        _id: new Types.ObjectId(),
+        status: DispatchStatus.OPEN,
+        save: jest.fn(),
+      } as any;
+      mockDispatchModel.findOne.mockReturnValue({
+        exec: jest.fn().mockResolvedValue(task),
+      });
+
+      await service.transitionRoom(managerUser, roomId, {
+        toStatus: CleaningStatus.IN_PROGRESS,
+      });
+
+      expect(task.assigneeUserId).toBeUndefined();
+    });
+
+    it("refuses a room another housekeeper has claimed", async () => {
+      mockRoomModel.findById.mockReturnValue({
+        exec: jest.fn().mockResolvedValue(dirtyRoom()),
+      });
+      mockDispatchModel.findOne.mockReturnValue({
+        exec: jest.fn().mockResolvedValue({
+          _id: new Types.ObjectId(),
+          status: DispatchStatus.OPEN,
+          assigneeUserId: new Types.ObjectId(),
+          save: jest.fn(),
+        }),
+      });
+
+      await expect(
+        service.transitionRoom(housekeeperUser, roomId, {
+          toStatus: CleaningStatus.IN_PROGRESS,
+        }),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it("creates and claims today's task when a housekeeper starts a room that has none", async () => {
+      mockRoomModel.findById.mockReturnValue({
+        exec: jest.fn().mockResolvedValue(dirtyRoom()),
+      });
+      mockDispatchModel.findOne.mockReturnValue({
+        exec: jest.fn().mockResolvedValue(null),
+      });
+
+      const result = await service.transitionRoom(housekeeperUser, roomId, {
+        toStatus: CleaningStatus.IN_PROGRESS,
+      });
+
+      expect(result.dispatchId).toBe(upsertedTask._id.toString());
+      expect(upsertedTask.status).toBe(DispatchStatus.IN_PROGRESS);
+      expect(String(upsertedTask.assigneeUserId)).toBe(staffUserId);
+    });
   });
 
   it("should throw 409 Conflict with current status on invalid state transition jump", async () => {

@@ -184,6 +184,8 @@ describe("Order and Pickup Access Security (Requirements d & e)", () => {
         {} as any,
         { get: jest.fn().mockReturnValue({}) } as any,
         {} as any,
+        undefined,
+        undefined,
         { log: jest.fn().mockResolvedValue({}) } as any,
       );
     });

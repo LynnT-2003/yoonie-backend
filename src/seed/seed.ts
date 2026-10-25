@@ -1275,14 +1275,24 @@ async function main() {
   }
 
   /* ---- Room housekeeping states for today */
-  for (const n of ["105", "305", "PV2"]) {
-    rooms[n].cleaningStatus = CleaningStatus.DIRTY;
-    await rooms[n].save();
+  for (const n of ["105", "305", "PV2", "201", "205", "401"]) {
+    if (rooms[n]) {
+      rooms[n].cleaningStatus = CleaningStatus.DIRTY;
+      await rooms[n].save();
+    }
   }
-  rooms["108"].cleaningStatus = CleaningStatus.IN_PROGRESS;
-  await rooms["108"].save();
-  rooms["110"].cleaningStatus = CleaningStatus.CLEAN;
-  await rooms["110"].save();
+  for (const n of ["108", "202", "302", "404"]) {
+    if (rooms[n]) {
+      rooms[n].cleaningStatus = CleaningStatus.IN_PROGRESS;
+      await rooms[n].save();
+    }
+  }
+  for (const n of ["110", "208", "308", "PV1"]) {
+    if (rooms[n]) {
+      rooms[n].cleaningStatus = CleaningStatus.CLEAN;
+      await rooms[n].save();
+    }
+  }
 
   for (const o of orders) {
     if (
