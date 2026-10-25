@@ -1,0 +1,723 @@
+{
+  "name": "Yoonie · Staff assistant",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "yoonie-staff-assistant",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "770e23e3-ca2b-443d-8087-64211e53e485",
+      "name": "Staff message",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "yoonie-staff-assistant"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "6bdaf1c9-0524-4324-936a-c23690f929ab",
+              "name": "api",
+              "value": "https://yoonie-backend.vercel.app/api",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "684c03e4-108e-4e84-a728-efdc1b2a442c",
+      "name": "Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        200,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.api }}/users/me",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ $('Staff message').item.json.headers.authorization || '' }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "fe8991eb-165f-4c55-a5f9-005bd20886d9",
+      "name": "Who is asking",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        400,
+        0
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// The gate: only a signed-in Yoonie staff member gets this far, and every tool runs as them\nconst me = $json.data;\nconst req = $('Staff message').item.json;\nif (!me || me.role === 'GUEST') {\n  return [{ json: { allowed: false } }];\n}\nreturn [{ json: {\n  allowed: true,\n  userId: me._id,\n  name: me.displayName,\n  role: me.role,\n  jobTitle: me.jobTitle || '',\n  branchId: (me.branchIds || [])[0],\n  today: new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' }),\n  auth: req.headers.authorization,\n  sessionId: req.body.sessionId || me._id,\n  chatInput: String(req.body.message || req.body.chatInput || ''),\n} }];"
+      },
+      "id": "2e4825eb-4723-475a-979f-a11805d8dcf3",
+      "name": "Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        620,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "3d199196-323f-4bda-9004-e619961708f2",
+              "leftValue": "={{ $json.allowed }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a22ff99e-d297-4285-9fa4-86b1505f3036",
+      "name": "Staff?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        820,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.chatInput }}",
+        "options": {
+          "systemMessage": "=You are Yoonie Ops, the assistant for hotel staff. You are talking to {{ $('Context').item.json.name }} ({{ $('Context').item.json.role }}{{ $('Context').item.json.jobTitle ? ', ' + $('Context').item.json.jobTitle : '' }}). Today is {{ $('Context').item.json.today }} (Bangkok).\n\nEverything you do runs as this person, through the same rules as the Yoonie app. If a tool says they aren't allowed, tell them plainly; don't try another way.\n\nTools:\n- todays_jobs: every job today (rooms, pickups, tours) with owner, status, deadline, ids. Use it first to find a room's roomId or a task's id.\n- move_room: change a room's cleaning state with its roomId. toStatus is IN_PROGRESS (start), CLEAN (done), INSPECTED (passed), or DIRTY (needs cleaning / failed inspection, reason required).\n- pickup_step: record a pickup step a driver phoned in: CONFIRMED, EN_ROUTE, AT_AIRPORT, GUEST_ON_BOARD, DROPPED_OFF.\n- answer_pickup_problem: answer a driver's problem: KEEP_WAITING (with instructions) or NO_SHOW.\n- tour_decision: KEEP, MERGE or CANCEL a low-fill tour departure (cancel needs a manager), with a note.\n- staff_list and assign_task: give a job to someone, or back to the open pool.\n\nRules: confirm what you changed and who was notified (from the tool's \"notified\" list). Before CANCEL or NO_SHOW, repeat what will happen and ask \"Shall I go ahead?\"; only act after a clear yes. Keep answers short; use room numbers and times, not ids."
+        }
+      },
+      "id": "6db1031a-9a59-46a4-bb17-0e08cbfcf8e1",
+      "name": "Staff assistant",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        1060,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { reply: $json.output } }}",
+        "options": {}
+      },
+      "id": "28ce22ad-4a8a-44d0-a191-e5dbbc802296",
+      "name": "Reply",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1400,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { error: 'Please sign in to Yoonie to use the staff assistant.' } }}",
+        "options": {
+          "responseCode": 401
+        }
+      },
+      "id": "ee350dd3-4415-41e4-857b-48447c9e0d72",
+      "name": "Not signed in",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1060,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-4o-mini"
+        },
+        "options": {
+          "temperature": 0.3
+        }
+      },
+      "id": "0bc0b415-53a3-4a2e-9335-c24700b3b3c7",
+      "name": "OpenAI (staff)",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        740,
+        260
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "U1ogObAxgv0JLQt1",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ 'staff:' + $('Context').item.json.userId + ':' + $('Context').item.json.sessionId }}",
+        "contextWindowLength": 12
+      },
+      "id": "1fa4a64d-d0d0-45e1-9945-ca3f3dfd2d7d",
+      "name": "Staff memory",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        580,
+        260
+      ]
+    },
+    {
+      "parameters": {
+        "toolDescription": "Every job today with ids: rooms (housekeeping.roomId, roomNumber, cleaningStatus, ready-by), pickups (flight, stage, driver), tour checks; owner and status.",
+        "method": "GET",
+        "url": "={{ $('Config').item.json.api }}/dispatch",
+        "sendQuery": true,
+        "specifyQuery": "keypair",
+        "parametersQuery": {
+          "values": [
+            {
+              "name": "branchId",
+              "valueProvider": "fieldValue",
+              "value": "={{ $('Context').item.json.branchId }}"
+            },
+            {
+              "name": "serviceDate",
+              "valueProvider": "fieldValue",
+              "value": "={{ $('Context').item.json.today }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "specifyHeaders": "keypair",
+        "parametersHeaders": {
+          "values": [
+            {
+              "name": "Authorization",
+              "valueProvider": "fieldValue",
+              "value": "={{ $('Context').item.json.auth }}"
+            }
+          ]
+        }
+      },
+      "id": "f02f2267-bf52-48ed-b3f6-0280800b0c5f",
+      "name": "todays_jobs",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        900,
+        260
+      ]
+    },
+    {
+      "parameters": {
+        "toolDescription": "Change a room's cleaning state. Needs roomId (housekeeping.roomId from todays_jobs) and toStatus; reason is required for DIRTY.",
+        "method": "POST",
+        "url": "={{ $('Config').item.json.api }}/staff/rooms/{roomId}/transition",
+        "sendHeaders": true,
+        "specifyHeaders": "keypair",
+        "parametersHeaders": {
+          "values": [
+            {
+              "name": "Authorization",
+              "valueProvider": "fieldValue",
+              "value": "={{ $('Context').item.json.auth }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "keypair",
+        "parametersBody": {
+          "values": [
+            {
+              "name": "toStatus",
+              "valueProvider": "modelRequired",
+              "description": "IN_PROGRESS, CLEAN, INSPECTED or DIRTY"
+            },
+            {
+              "name": "reason",
+              "valueProvider": "modelOptional",
+              "description": "Why it needs cleaning (required for DIRTY)"
+            }
+          ]
+        },
+        "placeholderDefinitions": {
+          "values": [
+            {
+              "name": "roomId",
+              "description": "housekeeping.roomId from todays_jobs",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "id": "03771901-2283-46b9-b359-5713796e333b",
+      "name": "move_room",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        1060,
+        260
+      ]
+    },
+    {
+      "parameters": {
+        "toolDescription": "Record a pickup step for a driver who phoned in. Needs the pickup task id and stage.",
+        "method": "POST",
+        "url": "={{ $('Config').item.json.api }}/staff/pickups/{taskId}/step",
+        "sendHeaders": true,
+        "specifyHeaders": "keypair",
+        "parametersHeaders": {
+          "values": [
+            {
+              "name": "Authorization",
+              "valueProvider": "fieldValue",
+              "value": "={{ $('Context').item.json.auth }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "keypair",
+        "parametersBody": {
+          "values": [
+            {
+              "name": "stage",
+              "valueProvider": "modelRequired",
+              "description": "CONFIRMED, EN_ROUTE, AT_AIRPORT, GUEST_ON_BOARD or DROPPED_OFF"
+            },
+            {
+              "name": "note",
+              "valueProvider": "modelOptional",
+              "description": "Optional note"
+            }
+          ]
+        },
+        "placeholderDefinitions": {
+          "values": [
+            {
+              "name": "taskId",
+              "description": "The task's _id from todays_jobs",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "id": "36c221ce-6f08-42f0-a9fe-44b7b477ae5a",
+      "name": "pickup_step",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        1220,
+        260
+      ]
+    },
+    {
+      "parameters": {
+        "toolDescription": "Answer a driver's reported problem on a pickup: KEEP_WAITING with instructions, or NO_SHOW.",
+        "method": "POST",
+        "url": "={{ $('Config').item.json.api }}/dispatch/{taskId}/pickup-issue",
+        "sendHeaders": true,
+        "specifyHeaders": "keypair",
+        "parametersHeaders": {
+          "values": [
+            {
+              "name": "Authorization",
+              "valueProvider": "fieldValue",
+              "value": "={{ $('Context').item.json.auth }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "keypair",
+        "parametersBody": {
+          "values": [
+            {
+              "name": "resolution",
+              "valueProvider": "modelRequired",
+              "description": "KEEP_WAITING or NO_SHOW"
+            },
+            {
+              "name": "note",
+              "valueProvider": "modelOptional",
+              "description": "Instructions for the driver"
+            }
+          ]
+        },
+        "placeholderDefinitions": {
+          "values": [
+            {
+              "name": "taskId",
+              "description": "The task's _id from todays_jobs",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "id": "e306e1da-53c7-47ac-a231-1d9ca9d1fa16",
+      "name": "answer_pickup_problem",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        1380,
+        260
+      ]
+    },
+    {
+      "parameters": {
+        "toolDescription": "Decide a low-fill tour departure: KEEP, MERGE or CANCEL (cancel needs a manager), with a note.",
+        "method": "POST",
+        "url": "={{ $('Config').item.json.api }}/dispatch/{taskId}/decision",
+        "sendHeaders": true,
+        "specifyHeaders": "keypair",
+        "parametersHeaders": {
+          "values": [
+            {
+              "name": "Authorization",
+              "valueProvider": "fieldValue",
+              "value": "={{ $('Context').item.json.auth }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "keypair",
+        "parametersBody": {
+          "values": [
+            {
+              "name": "decision",
+              "valueProvider": "modelRequired",
+              "description": "KEEP, MERGE or CANCEL"
+            },
+            {
+              "name": "note",
+              "valueProvider": "modelOptional",
+              "description": "Where guests go, or why"
+            }
+          ]
+        },
+        "placeholderDefinitions": {
+          "values": [
+            {
+              "name": "taskId",
+              "description": "The task's _id from todays_jobs",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "id": "1ac0285e-0e24-4c1e-b54c-f477b38fb6cc",
+      "name": "tour_decision",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        1540,
+        260
+      ]
+    },
+    {
+      "parameters": {
+        "toolDescription": "Staff on this branch with ids, names and job titles, for assigning jobs.",
+        "method": "GET",
+        "url": "={{ $('Config').item.json.api }}/staff/roster",
+        "sendQuery": true,
+        "specifyQuery": "keypair",
+        "parametersQuery": {
+          "values": [
+            {
+              "name": "branchId",
+              "valueProvider": "fieldValue",
+              "value": "={{ $('Context').item.json.branchId }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "specifyHeaders": "keypair",
+        "parametersHeaders": {
+          "values": [
+            {
+              "name": "Authorization",
+              "valueProvider": "fieldValue",
+              "value": "={{ $('Context').item.json.auth }}"
+            }
+          ]
+        }
+      },
+      "id": "8863301a-c063-4bcb-acbc-0a6a9ce48f9c",
+      "name": "staff_list",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        1700,
+        260
+      ]
+    },
+    {
+      "parameters": {
+        "toolDescription": "Give a job to a staff member (assigneeUserId from staff_list), or send 'null' to put it back in the open pool.",
+        "method": "PATCH",
+        "url": "={{ $('Config').item.json.api }}/dispatch/{taskId}/assign",
+        "sendHeaders": true,
+        "specifyHeaders": "keypair",
+        "parametersHeaders": {
+          "values": [
+            {
+              "name": "Authorization",
+              "valueProvider": "fieldValue",
+              "value": "={{ $('Context').item.json.auth }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "keypair",
+        "parametersBody": {
+          "values": [
+            {
+              "name": "assigneeUserId",
+              "valueProvider": "modelRequired",
+              "description": "Staff member id from staff_list"
+            }
+          ]
+        },
+        "placeholderDefinitions": {
+          "values": [
+            {
+              "name": "taskId",
+              "description": "The task's _id from todays_jobs",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "id": "f5080aa6-122d-4a31-ad7a-f91548ec3ea0",
+      "name": "assign_task",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        1860,
+        260
+      ]
+    }
+  ],
+  "connections": {
+    "Staff message": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config": {
+      "main": [
+        [
+          {
+            "node": "Who is asking",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Who is asking": {
+      "main": [
+        [
+          {
+            "node": "Context",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Not signed in",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Context": {
+      "main": [
+        [
+          {
+            "node": "Staff?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Staff?": {
+      "main": [
+        [
+          {
+            "node": "Staff assistant",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Not signed in",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Staff assistant": {
+      "main": [
+        [
+          {
+            "node": "Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI (staff)": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Staff assistant",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Staff memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "Staff assistant",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "todays_jobs": {
+      "ai_tool": [
+        [
+          {
+            "node": "Staff assistant",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "move_room": {
+      "ai_tool": [
+        [
+          {
+            "node": "Staff assistant",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "pickup_step": {
+      "ai_tool": [
+        [
+          {
+            "node": "Staff assistant",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "answer_pickup_problem": {
+      "ai_tool": [
+        [
+          {
+            "node": "Staff assistant",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "tour_decision": {
+      "ai_tool": [
+        [
+          {
+            "node": "Staff assistant",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "staff_list": {
+      "ai_tool": [
+        [
+          {
+            "node": "Staff assistant",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "assign_task": {
+      "ai_tool": [
+        [
+          {
+            "node": "Staff assistant",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}
