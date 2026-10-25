@@ -41,13 +41,9 @@ Two workflows, two entry points. Guests and staff never share an assistant, a co
 
 ## Call the staff assistant
 
-```bash
-TOKEN=$(curl -s -X POST https://yoonie-backend.vercel.app/api/auth/login \
-  -H 'content-type: application/json' -d '{"email":"<staff email>","password":"<password>"}' \
-  | jq -r .data.tokens.accessToken)
+One command: it signs in and asks in one go. Change the email name (`anan`, `mali`, `noi`, `prasit`) and the message.
 
-curl -X POST https://<your-n8n>/webhook/yoonie-staff-assistant \
-  -H "Authorization: Bearer $TOKEN" -H 'content-type: application/json' \
-  -d '{"message":"What rooms are late today?","sessionId":"demo-1"}'
-# → { "reply": "..." }
+```bash
+curl -s -X POST https://lynn1975.app.n8n.cloud/webhook/yoonie-staff-assistant -H "Authorization: Bearer $(curl -s -X POST https://yoonie-backend.vercel.app/api/auth/login -H 'content-type: application/json' -d '{"email":"anan@riverside-bkk.example","password":"Password123!"}' | jq -r .data.tokens.accessToken)" -H 'content-type: application/json' -d '{"message":"What is late today?","sessionId":"demo"}'
+# → {"reply":"..."}
 ```
