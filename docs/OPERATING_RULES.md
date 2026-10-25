@@ -143,7 +143,7 @@ A worker sees and acts only within their branches. An assignee must belong to th
 |---|---|---|---|
 | 4.1 Room turnaround | **Housekeeper** (Noi, Dao) | Supervisor inspects; desk watches | Yes |
 | 4.2 Airport pickup | **Driver** (Somchai, Prasit) | Desk answers problems | Yes |
-| 4.3 Tour fill check | **Nobody does work.** It's a money decision. | **Desk / manager** decides Keep, Merge or Cancel | Yes |
+| 4.3 Tour fill check | **Nobody does work.** It's a money decision. | **Dispatcher** decides Keep or Merge; **Cancel needs a manager**. Later a *Tours* job title can take the dispatcher's place. | Yes |
 | 4.4 Tour departure | **Tour guide** | Desk | **No.** There are no guides in Yoonie (no `GUIDE` job title, no guide accounts). |
 | 4.5 Spa session | **Therapist** | Desk / spa reception | **No.** Spa only stores "N therapists" as a number, not people. |
 
@@ -203,7 +203,43 @@ stateDiagram-v2
     INSPECTED --> [*]: guest checks in
 ```
 
+**Who's involved, step by step:**
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor HK as Housekeeper (app)
+    participant Y as Yoonie
+    actor Sup as Supervisor / manager (app or web)
+    actor Desk as Desk (web)
+    actor Drv as Driver (app)
+
+    Note over Y: Guest checks out or a booking lands → room is DIRTY
+    Y-->>Desk: board: Room 305 · Dirty · open to any housekeeper
+    HK->>Y: Start cleaning (claims the room)
+    Y-->>Desk: board: Room 305 · Cleaning · Noi
+    opt Guest already on the way
+        Drv->>Y: Guest is with me
+        Y->>HK: CRITICAL "Room 305: guest arrives ~15:45"
+    end
+    HK->>Y: Mark clean
+    Y->>Sup: "Room 305 ready for inspection"
+    Sup->>Y: Pass or Fail (standing in the room)
+    alt Pass
+        Y->>HK: "Room 305 passed inspection"
+        Y-->>Desk: board: Room 305 · Ready
+    else Fail + reason
+        Y->>HK: CRITICAL "Reclean room 305: bathroom not done"
+        Y-->>Desk: board: Room 305 · Dirty · Noi
+        Note over HK,Y: back to Start cleaning
+    end
+```
+
+Solid arrows are pings to a phone. Dashed arrows are changes the desk sees live on the board, with no ping.
+
 Allowed moves: `DIRTY→IN_PROGRESS→CLEAN→INSPECTED`, and `any→DIRTY` with a reason. Anything else is 409.
+
+**Inspection** **[Built]**: the supervisor passes or fails from the phone (the app's Inspect tab, standing in the room) or from web Dispatch's "To inspect" list. Fail always needs a reason.
 
 **Ownership** **[Built]**:
 - Open pool for housekeepers. Starting a room claims it.
@@ -222,7 +258,6 @@ Allowed moves: `DIRTY→IN_PROGRESS→CLEAN→INSPECTED`, and `any→DIRTY` with
 
 **Gaps (agreed, not built):**
 - **Can't clean** issues on the housekeeper's phone: `GUEST_IN_ROOM` (DND / guest present), `MAINTENANCE_NEEDED`, `OUT_OF_SUPPLIES` and `OTHER`. The desk answers with *Retry later (time)*, *Moved guest* or *Maintenance sent*. (L5)
-- **Inspection from the supervisor's phone**, in the room. Web Pass/Fail becomes the fallback.
 - **Remove the direct web buttons.** Replace web "Start cleaning / Mark clean" with "Housekeeper phoned in…", recorded on their behalf. (L1)
 - **Track how long cleaning takes:** show "cleaning for 32 min" against `WORK_LEFT_MIN` estimates (DIRTY 45, IN_PROGRESS 25, CLEAN 10). Replace the estimates with measured medians per room type once there's data.
 
@@ -337,7 +372,7 @@ sequenceDiagram
 
 **In one line:** a warning that a tour departure will lose money, so someone decides what to do *before* it runs.
 
-**Who:** no worker. The **desk or manager** reads the card and decides.
+**Who:** no worker. The **dispatcher** (Mali) owns the card and decides Keep or Merge. **Cancel needs a manager** (Anan), because it loses revenue and means refunds (L8). The front desk only makes the guest calls afterwards. **[Built]**: the API refuses a dispatcher's Cancel, and the web and app hide or disable it.
 
 **Example:** Sunset Cruise, 18:00. It costs the hotel ฿4,500 to run (boat and guide).
 
@@ -358,21 +393,21 @@ If the departure fills up later, the card disappears on its own.
 
 **The decision:**
 
-| Choice | Meaning | What Yoonie does | What a person still does |
-|---|---|---|---|
-| **Keep** | Run it anyway (VIP on board, promo, etc.) | records it, card closes | nothing |
-| **Merge** | Move these guests to another departure | records it + your note | front desk moves the bookings and tells the guests |
-| **Cancel** | Don't run it | records it + your note | front desk refunds or moves the guests and tells them |
+| Choice | Who can choose it | Meaning | What Yoonie does | What a person still does |
+|---|---|---|---|---|
+| **Keep** | dispatcher or manager | Run it anyway (VIP on board, promo, etc.) | records it, card closes | nothing |
+| **Merge** | dispatcher or manager | Move these guests to another departure | records it + your note | front desk moves the bookings and tells the guests |
+| **Cancel** | **manager / admin only** | Don't run it | records it + your note | front desk refunds or moves the guests and tells them |
 
 ```mermaid
 flowchart LR
     BK["Booking added /<br/>changed / cancelled"] --> E{"Below min guests<br/>or under 40% full?"}
     E -->|no| OK["No card<br/>(old card removed)"]
     E -->|yes| CARD["Card on Dispatch:<br/>2/18 · ฿1,800 vs ฿4,500<br/>−฿2,700 if it runs"]
-    CARD --> D{"Desk decides"}
+    CARD --> D{"Dispatcher decides"}
     D -->|Keep| K["Runs as planned"]
     D -->|Merge + note| M["Recorded →<br/>front desk moves guests"]
-    D -->|Cancel + note| C["Recorded →<br/>front desk refunds / moves"]
+    D -->|"Cancel (manager only)"| C["Recorded →<br/>front desk refunds / moves"]
 ```
 
 **Not built yet:**
@@ -558,7 +593,7 @@ A robot is a worker whose app is an API client. It is assigned tasks the same wa
 | `STAFF` (housekeeper) | see their own rooms and the pool; claim by starting; move their room to `IN_PROGRESS` and `CLEAN`; send a room to `DIRTY` with a reason |
 | `STAFF` (driver) | see their pickups; report steps and issues on their own pickups |
 | `STAFF` with `housekeeping:inspect` | everything above, plus inspect (`INSPECTED`) |
-| `DISPATCHER` | see Dispatch; assign; answer issues; record decisions; record pickup steps on a driver's behalf; can't move rooms |
-| `BRANCH_MGR` / `ADMIN` | everything in their branches, including room moves and inspection |
+| `DISPATCHER` | see Dispatch; assign; answer issues; Keep or Merge tour departures; record pickup steps on a driver's behalf; can't move rooms |
+| `BRANCH_MGR` / `ADMIN` | everything in their branches, including room moves, inspection and **cancelling tour departures** |
 
 Job titles (`HOUSEKEEPER`, `DRIVER`, front desk) currently stand in for capabilities (L9).

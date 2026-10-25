@@ -390,6 +390,14 @@ export class DispatchService {
     if (task.type !== DispatchType.TOUR_CONSOLIDATION || !task.consolidation) {
       throw new BadRequestException("Decisions only apply to tour departures");
     }
+    // cancelling loses revenue and means refunds: a manager's call, not the dispatcher's
+    const isManager =
+      user.isPlatformAdmin ||
+      user.role === UserRole.BRANCH_MGR ||
+      user.role === UserRole.ADMIN;
+    if (dto.decision === "CANCEL" && !isManager) {
+      throw new ForbiddenException("Only a manager can cancel a departure");
+    }
     task.consolidation.decision = dto.decision;
     task.consolidation.decisionNote = dto.note?.trim() || undefined;
     task.status = DispatchStatus.DONE;

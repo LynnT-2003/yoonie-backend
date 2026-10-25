@@ -1,4 +1,8 @@
-import { BadRequestException, ConflictException } from "@nestjs/common";
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+} from "@nestjs/common";
 import { Types } from "mongoose";
 import { DispatchService } from "./dispatch.service";
 import { DispatchStatus, DispatchType } from "../common/enums/dispatch.enum";
@@ -170,6 +174,30 @@ describe("DispatchService - one work model", () => {
     expect(notifications.createNotification).toHaveBeenCalledWith(
       expect.objectContaining({ userId: String(driverId) }),
     );
+  });
+
+  it("a dispatcher can merge a departure but only a manager can cancel it", async () => {
+    const dispatcher: ICurrentUser = { ...manager, role: UserRole.DISPATCHER };
+    const flag = () =>
+      task({
+        type: DispatchType.TOUR_CONSOLIDATION,
+        pickup: undefined,
+        consolidation: { serviceName: "Sunset Cruise" },
+      });
+
+    repo.findById.mockResolvedValue(flag());
+    await expect(
+      service.decideTour(dispatcher, String(new Types.ObjectId()), {
+        decision: "CANCEL",
+      }),
+    ).rejects.toThrow(ForbiddenException);
+
+    const merged = flag();
+    repo.findById.mockResolvedValue(merged);
+    await service.decideTour(dispatcher, String(merged._id), {
+      decision: "MERGE",
+    });
+    expect(merged.status).toBe(DispatchStatus.DONE);
   });
 
   it("closes a tour flag with a recorded decision", async () => {
