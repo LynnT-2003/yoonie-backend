@@ -137,6 +137,18 @@ A worker sees and acts only within their branches. An assignee must belong to th
 
 ## 4. Job types
 
+### Who does each job
+
+| Job | Who does it | Who watches / decides | Exists in Yoonie today? |
+|---|---|---|---|
+| 4.1 Room turnaround | **Housekeeper** (Noi, Dao) | Supervisor inspects; desk watches | Yes |
+| 4.2 Airport pickup | **Driver** (Somchai, Prasit) | Desk answers problems | Yes |
+| 4.3 Tour fill check | **Nobody does work.** It's a money decision. | **Desk / manager** decides Keep, Merge or Cancel | Yes |
+| 4.4 Tour departure | **Tour guide** | Desk | **No.** There are no guides in Yoonie (no `GUIDE` job title, no guide accounts). |
+| 4.5 Spa session | **Therapist** | Desk / spa reception | **No.** Spa only stores "N therapists" as a number, not people. |
+
+**Open question for 4.4 and 4.5:** are guides and therapists our staff, or a partner company's? If they're ours, they get accounts like drivers. If they're a partner's, they need a no-login link to tap steps. We need the answer before building either.
+
 ### Every task, the same lifecycle
 
 ```mermaid
@@ -321,64 +333,119 @@ sequenceDiagram
 - Live flight status feed (planned in `PRODUCT.md`).
 - Message the guest at `AT_AIRPORT` ("Your driver is at door 4") through their channel (`pickup.channel`).
 
-### 4.3 Tour fill check: `TOUR_CONSOLIDATION`
+### 4.3 Tour fill check: `TOUR_CONSOLIDATION` [Built]
 
-**Purpose:** don't run a departure that loses money without deciding to.
+**In one line:** a warning that a tour departure will lose money, so someone decides what to do *before* it runs.
 
-**Created** **[Built]**:
-- by the planner when a tour line is booked or changed: dedupe key `tour:<slotKey>`.
-- It's raised when `booked < minViablePax`, or the fill rate is below the branch `consolidationThreshold` (default 0.4).
-- It's cleared automatically when the departure fills.
-- Projected loss = `fixedCostThb − booked × unitPrice`.
+**Who:** no worker. The **desk or manager** reads the card and decides.
 
+**Example:** Sunset Cruise, 18:00. It costs the hotel ฿4,500 to run (boat and guide).
+
+| | Booked | Revenue | Cost | Result | Flag? |
+|---|---|---|---|---|---|
+| Healthy | 10 / 18 | 10 × ฿900 = ฿9,000 | ฿4,500 | **+฿4,500** | No |
+| Weak | 5 / 18 | ฿4,500 | ฿4,500 | ฿0 (break-even) | **Yes**: fill 28% is below 40% |
+| Losing | 2 / 18 | ฿1,800 | ฿4,500 | **−฿2,700** | **Yes**: below the minimum of 6 guests |
+
+**When the card appears:** after any booking change on that departure, if **either**:
+
+| Rule | Setting | Default |
+|---|---|---|
+| Fewer guests than the minimum | `minViablePax` on the tour | set per tour (e.g. 6) |
+| Fill rate too low | `consolidationThreshold` on the branch | 40% |
+
+If the departure fills up later, the card disappears on its own.
+
+**The decision:**
+
+| Choice | Meaning | What Yoonie does | What a person still does |
+|---|---|---|---|
+| **Keep** | Run it anyway (VIP on board, promo, etc.) | records it, card closes | nothing |
+| **Merge** | Move these guests to another departure | records it + your note | front desk moves the bookings and tells the guests |
+| **Cancel** | Don't run it | records it + your note | front desk refunds or moves the guests and tells them |
 
 ```mermaid
 flowchart LR
-    BK["Tour line booked<br/>or changed"] --> E{"booked &lt; min pax<br/>or fill &lt; threshold?"}
-    E -->|no| CLR["no flag<br/>(stale flag cleared)"]
-    E -->|yes| F["Fill flag on Dispatch<br/>fill · revenue vs cost · projected loss"]
-    F --> DEC{"Desk decides"}
-    DEC -->|KEEP| K["Runs as planned"]
-    DEC -->|"MERGE + note"| M["Recorded<br/>front desk moves guests"]
-    DEC -->|"CANCEL + note"| C["Recorded<br/>front desk refunds / moves"]
+    BK["Booking added /<br/>changed / cancelled"] --> E{"Below min guests<br/>or under 40% full?"}
+    E -->|no| OK["No card<br/>(old card removed)"]
+    E -->|yes| CARD["Card on Dispatch:<br/>2/18 · ฿1,800 vs ฿4,500<br/>−฿2,700 if it runs"]
+    CARD --> D{"Desk decides"}
+    D -->|Keep| K["Runs as planned"]
+    D -->|Merge + note| M["Recorded →<br/>front desk moves guests"]
+    D -->|Cancel + note| C["Recorded →<br/>front desk refunds / moves"]
 ```
 
-**Decision** **[Built]** (L8):
-- The desk records `KEEP`, `MERGE` or `CANCEL` with a note (`POST /dispatch/:id/decision`).
-- The task becomes Done and is audited.
-- **Moving or refunding the booked guests stays a manual front-desk step.** The system records the decision; it doesn't act on bookings.
-
-**Ownership:** none. It's a decision for whoever is on duty, not a job someone owns.
-
-**Gaps:**
-- After `MERGE` or `CANCEL`, notify the affected guests' bookings and create follow-up tasks (move or refund) **[Not built]**.
-- Decision deadline should be a branch setting (for example N hours before departure) **[Partial]**: `dueAt` exists, but no rule sets it per branch.
+**Not built yet:**
+- After Merge or Cancel, nothing reaches the affected guests. A person has to call them.
+- There's no "decide by" deadline per branch (for example 4 hours before departure).
+- Nobody is pinged when a card appears; it only shows on the board.
 
 ### 4.4 Tour departure: `TOUR_DEPARTURE` [Not built]
-**Purpose:** each departure runs on time with the right guests.
-- **Stages:** `ASSIGNED → CONFIRMED (guide accepted) → CHECKING_IN (pax counted against manifest) → DEPARTED → RETURNED`.
-- **Issues:** `GUEST_MISSING`, `VEHICLE_PROBLEM`, `WEATHER`, `OTHER`.
-- **Answers:** *Wait N min*, *Leave without*, *Cancel departure* (the cancel is an L8 decision).
-- **Data per guest:** checked in / no-show.
-- **Pings:** desk at `DEPARTED` (with the no-shows); desk at `RETURNED`.
+
+**In one line:** the guide runs the tour and taps where it is, just as a driver does for a pickup.
+
+**Who:** **tour guide**, who doesn't exist in Yoonie yet (see the open question above).
+
+**Why it's needed:** today nobody knows whether a tour actually left, who didn't show up, or when guests are back. Every point below is something the desk can't see today.
+
+| Guide taps | Who gets told | Why it matters |
+|---|---|---|
+| **Accept** | desk sees "guide confirmed" | someone is actually running it |
+| **Guests checked in** (ticks names) | desk: "2 no-shows: Room 105, 208" | front desk can call the missing guests |
+| **Departed** | desk | tour left on time, or late |
+| **Returned** | desk: "Sunset Cruise back, 8 guests" | dinner and room prep can plan around it |
+| **Problem**: guest missing / vehicle / weather | desk, urgent | desk answers: *wait 10 min*, *leave without them*, or *cancel* (cancel is a manager decision) |
+
+```mermaid
+stateDiagram-v2
+    direction LR
+    [*] --> Assigned: guide given the tour
+    Assigned --> Accepted: guide taps Accept
+    Accepted --> CheckedIn: guide ticks guests<br/>→ desk told no-shows
+    CheckedIn --> Departed: tour leaves
+    Departed --> Returned: back at hotel<br/>→ desk told
+    Returned --> [*]
+```
 
 ### 4.5 Spa session: `SPA_SESSION` [Not built]
-**Purpose:** the therapist and the room are ready when the guest arrives.
-- **Stages:** `ASSIGNED → CONFIRMED → GUEST_ARRIVED → STARTED → FINISHED`.
-- **Issues:** `GUEST_LATE`, `ROOM_NOT_READY`, `OTHER`.
-- **Answers:** *Shorten session*, *Reschedule*, *No-show* (an L8 decision when a charge applies).
-- **Capacity** already comes from the spa slot (the minimum of treatment rooms and therapists).
 
-### 4.6 Adding a new job type: checklist
-1. Define the ordered stages, which stage maps to which status, and which stages a desk may record on someone's behalf.
-2. Define the issue kinds and the desk's answers.
-3. Define the deadline source (a guest commitment) and the urgency rule.
-4. Add the job type to the ping matrix (§6). Include a "worker done" or "guest arrived" ping for the desk if a guest is waiting on it.
-5. Natural dedupe key, and planner upsert that **preserves** the stage, steps and issue.
-6. Make it forward-only and replay-safe, with `Idempotency-Key` on endpoints.
-7. Audit every step.
-8. Return `notified` names.
-9. Add it to this document before merging.
+**In one line:** the therapist taps through each treatment, so the desk knows the guest was seen and the room is free again.
+
+**Who:** **therapist**, who doesn't exist in Yoonie yet. Spa only knows "3 therapists, 2 treatment rooms" as numbers, which is enough to stop overbooking but not to dispatch anyone.
+
+| Therapist taps | Who gets told | Why it matters |
+|---|---|---|
+| **Accept** | desk | someone is covering the 15:00 massage |
+| **Guest arrived** | — | starts the clock; if it isn't tapped by start time, the desk can call the guest |
+| **Started** | — | the room is in use |
+| **Finished** | desk (to charge the folio) | room free; extras can be added to the bill |
+| **Problem**: guest late / room not ready | desk, urgent | desk answers: *shorten session*, *reschedule*, or *no-show* (charging a no-show is a manager decision) |
+
+```mermaid
+stateDiagram-v2
+    direction LR
+    [*] --> Assigned: therapist given the booking
+    Assigned --> Accepted
+    Accepted --> GuestArrived
+    GuestArrived --> Started
+    Started --> Finished: → desk (folio)
+    Finished --> [*]
+```
+
+### 4.6 Before adding any new job type (checklist for builders)
+
+This is not a feature. It's the list a developer must fill in **before** building a new kind of job (tour departures, spa, room service, robot deliveries). If a box can't be filled, the job isn't ready to build.
+
+| # | Question | Pickup example |
+|---|---|---|
+| 1 | **Who does it?** Which role, and do they have an account? | Driver (STAFF, job title DRIVER) |
+| 2 | **What do they tap?** As few steps as possible; every step must tell someone something (L4) | Today 5 taps; proposed 3: Accept · Guest with me · Dropped off |
+| 3 | **What can go wrong, and what can the desk answer?** | Can't find guest → Keep waiting / No-show |
+| 4 | **What's the deadline, and which guest promise sets it?** | Flight landing time |
+| 5 | **Who gets pinged at each step?** Add it to §6 | Desk at "guest with me" and "dropped off" |
+| 6 | **How is it created, and can it be created twice?** One natural key, no duplicates | `pickup:<order>:<line>` |
+| 7 | **Is it safe offline?** Repeating a tap does nothing | Yes, forward-only |
+| 8 | **Is it written here?** Add a section to this doc in the same PR | §4.2 |
 
 ---
 
