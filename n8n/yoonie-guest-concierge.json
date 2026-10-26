@@ -7,7 +7,7 @@
         "initialMessages": "Sawasdee ka! I'm Yoonie, your concierge. How can I help with your stay?",
         "options": {}
       },
-      "id": "63d034f8-490f-4948-9d0a-04ce3f33a63a",
+      "id": "5c03521d-349a-45da-9fc0-1b997c1349c8",
       "name": "Guest chat",
       "type": "@n8n/n8n-nodes-langchain.chatTrigger",
       "typeVersion": 1.1,
@@ -22,19 +22,19 @@
         "assignments": {
           "assignments": [
             {
-              "id": "631d790d-cc51-4da1-ba42-b59b704d5361",
+              "id": "891f9e12-40d5-4b11-8bdf-af1e39e3781f",
               "name": "api",
               "value": "https://yoonie-backend.vercel.app/api",
               "type": "string"
             },
             {
-              "id": "e848506e-7636-4231-9ef3-71db3a8d5c78",
+              "id": "5427568c-3e81-4948-906a-63cd6cfbff39",
               "name": "branchCode",
               "value": "BKK-RIVERSIDE",
               "type": "string"
             },
             {
-              "id": "1eca3689-d352-4bdb-8038-d048ddfba8b8",
+              "id": "650e6f5a-9da8-4b37-a3f4-22e8333e0633",
               "name": "hotelName",
               "value": "BKK Riverside Boutique Hotel",
               "type": "string"
@@ -44,7 +44,7 @@
         "includeOtherFields": true,
         "options": {}
       },
-      "id": "3acf90c5-eec9-4ae0-9016-8ab3402d8b06",
+      "id": "2a6a90ff-f40a-44ea-bcae-249b1fcfa4ad",
       "name": "Config",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
@@ -61,7 +61,7 @@
           "systemMessage": "=You are Yoonie, the warm, polished concierge of {{ $('Config').item.json.hotelName }} in Bangkok. You speak the guest's language (English or Thai) and keep answers short and friendly.\n\nAlways use your tools for facts. Never guess prices, times or availability:\n- hotel_info: rooms and prices, tours / transfers / spa, restaurant hours, check-in and check-out times, address.\n- check_availability: rooms left and prices for dates (YYYY-MM-DD). Today is {{ $now.setZone('Asia/Bangkok').toFormat('yyyy-LL-dd') }}.\n- lookup_booking: a guest's booking. You need their booking number (like TS-261025-AA70E) AND the email or phone on the booking. Ask for both; never reveal anything without both.\n- send_request: pass a request to the hotel team (towels, cleaning, maintenance, food, transport…). Needs the booking number and email or phone, plus what they need.\n\nRules:\n- You cannot approve anything that costs money or changes a booking: late checkout, upgrades, discounts, refunds, cancellations, free extras. Say a manager decides, and offer to send the request with send_request.\n- To book, share prices and availability and invite them to book on the hotel website; you don't take payments.\n- Never mention internal systems, statuses, codes or staff names. Never share another guest's information.\n- If a tool says a booking wasn't found, ask them to check the number and contact; don't hint which part was wrong."
         }
       },
-      "id": "afa0625d-c301-4522-a62c-583833bfa580",
+      "id": "aa855f64-86b4-4981-8f73-54625729b59e",
       "name": "Guest concierge",
       "type": "@n8n/n8n-nodes-langchain.agent",
       "typeVersion": 1.7,
@@ -82,7 +82,7 @@
           "temperature": 0.3
         }
       },
-      "id": "b839c2f8-c524-446b-95d4-8435c79409f1",
+      "id": "175c3e9e-16f8-4294-bbde-2e0a20242690",
       "name": "OpenAI (guest)",
       "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
       "typeVersion": 1.2,
@@ -103,7 +103,7 @@
         "sessionKey": "={{ 'guest:' + $('Guest chat').item.json.sessionId }}",
         "contextWindowLength": 12
       },
-      "id": "a743bf74-1adf-4f32-a690-88af37e59060",
+      "id": "7701da13-1188-4f9b-81f4-9b1102ae82f9",
       "name": "Guest memory",
       "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
       "typeVersion": 1.3,
@@ -131,7 +131,7 @@
           ]
         }
       },
-      "id": "db0c5d9c-218d-4364-907a-751ae514a84e",
+      "id": "81cb01a0-e2ec-448c-b2ee-50ef70552768",
       "name": "hotel_info",
       "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
       "typeVersion": 1.1,
@@ -175,7 +175,7 @@
           ]
         }
       },
-      "id": "3edefa53-c6c4-484c-8c8d-6961f1e966be",
+      "id": "39170a97-b957-4814-9865-d464ca160636",
       "name": "check_availability",
       "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
       "typeVersion": 1.1,
@@ -214,7 +214,7 @@
           ]
         }
       },
-      "id": "0bf8f910-711e-48a5-aa23-ab31ad8aee47",
+      "id": "97319c01-c62e-4030-ad97-d85f2ab496b2",
       "name": "lookup_booking",
       "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
       "typeVersion": 1.1,
@@ -263,7 +263,7 @@
           ]
         }
       },
-      "id": "7b083752-8929-4774-8d1f-6bf4e74fd7b2",
+      "id": "07cb406c-b816-4d76-a13f-c1de6fe338a8",
       "name": "send_request",
       "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
       "typeVersion": 1.1,
