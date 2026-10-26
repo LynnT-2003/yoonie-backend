@@ -382,8 +382,8 @@ stateDiagram-v2
 ### B. Inventory Hold Lifecycle
 ```mermaid
 stateDiagram-v2
-    [*] --> ACTIVE: Atomic CAS increments held count; 15m lease starts
-    ACTIVE --> CONVERTED: Order confirmed; held decremented, booked incremented
+    [*] --> ACTIVE: Atomic CAS increments held count, 15m lease starts
+    ACTIVE --> CONVERTED: Order confirmed, held decremented, booked incremented
     ACTIVE --> EXPIRED: 15-minute lease timer expires
     ACTIVE --> RELEASED: Guest manually removes item from cart
     EXPIRED --> [*]: 60s sweeper reverts held count to available
