@@ -35,11 +35,29 @@ import { BranchService } from "./branch.service";
 import { CreateBranchDto } from "./dto/requests/create-branch.dto";
 import { BranchResponseDto } from "./dto/responses/branch-response.dto";
 
+import { OnboardBranchDto } from "./dto/requests/onboard-branch.dto";
+
 @ApiTags("Branches")
 @ApiBearerAuth("JWT-auth")
 @Controller("branches")
 export class BranchController {
   constructor(private readonly branchService: BranchService) {}
+
+  @Public()
+  @Post("onboard")
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary: "Public hotel workspace onboarding",
+    description:
+      "Provisions a new branch property and its founding owner account, returning live session tokens.",
+  })
+  @ApiResponse({
+    status: 201,
+    description: "Workspace provisioned successfully with owner session",
+  })
+  async onboard(@Body() dto: OnboardBranchDto) {
+    return this.branchService.onboard(dto);
+  }
 
   @Public()
   @Get()

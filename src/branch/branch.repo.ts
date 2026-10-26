@@ -20,7 +20,15 @@ export class BranchRepo {
   }
 
   async findByCode(code: string): Promise<BranchDocument | null> {
-    return this.branchModel.findOne({ code }).exec();
+    return this.branchModel
+      .findOne({
+        $or: [
+          { code },
+          { code: code.toUpperCase() },
+          { code: code.toLowerCase() },
+        ],
+      })
+      .exec();
   }
 
   async findAll(activeOnly = true): Promise<BranchDocument[]> {

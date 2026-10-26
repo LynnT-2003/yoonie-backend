@@ -3,21 +3,109 @@ import {
   NotFoundException,
   ConflictException,
   ForbiddenException,
+  Inject,
+  forwardRef,
 } from "@nestjs/common";
 import { Types } from "mongoose";
+import * as bcrypt from "bcrypt";
 import { BranchRepo } from "./branch.repo";
 import { BranchDocument } from "./entity/branch.entity";
 import { CreateBranchDto } from "./dto/requests/create-branch.dto";
+import { OnboardBranchDto } from "./dto/requests/onboard-branch.dto";
 import { R2Service } from "../storage/r2.service";
 import { ICurrentUser } from "../common/interfaces/user.interface";
 import { validateBranchAccess } from "../common/helpers/branch-access.helper";
+import { UserRepo } from "../user/user.repo";
+import { UserService } from "../user/user.service";
+import { AuthService } from "../auth/auth.service";
+import { UserRole } from "../common/enums/user-role.enum";
+import { Permission } from "../common/enums/permission.enum";
 
 @Injectable()
 export class BranchService {
   constructor(
     private readonly branchRepo: BranchRepo,
     private readonly r2Service: R2Service,
+    private readonly userRepo: UserRepo,
+    private readonly userService: UserService,
+    @Inject(forwardRef(() => AuthService))
+    private readonly authService: AuthService,
   ) {}
+
+  async onboard(dto: OnboardBranchDto) {
+    const slug = dto.slug.toLowerCase().trim();
+    const code = slug.toUpperCase();
+
+    // 1. Verify property slug is unique
+    const existing = await this.branchRepo.findByCode(code);
+    if (existing) {
+      throw new ConflictException(
+        `Property slug "${slug}" is already taken. Please choose another unique slug.`,
+      );
+    }
+
+    // 2. Verify owner email is not already registered
+    const existingUser = await this.userService.findByEmail(
+      dto.ownerEmail.toLowerCase().trim(),
+    );
+    if (existingUser) {
+      throw new ConflictException(
+        `An account with email "${dto.ownerEmail}" already exists. Please log in with your existing account.`,
+      );
+    }
+
+    // 3. Create Branch property in database
+    const branch = await this.branchRepo.create({
+      code,
+      name: dto.hotelName.trim(),
+      timezone: dto.timezone || "Asia/Bangkok",
+      currency: dto.currency || "THB",
+      contactPhoneE164: dto.contactPhoneE164,
+      contactEmail: dto.contactEmail || dto.ownerEmail.trim(),
+      logoUrl: dto.logoUrl,
+      heroImageUrl: dto.heroImageUrl,
+      images: [],
+      isActive: true,
+      settings: {
+        checkInTime: "14:00",
+        checkOutTime: "12:00",
+        vatRate: 0.07,
+        serviceChargeRate: 0.1,
+        holdTtlMinutes: 15,
+        consolidationThreshold: 0.4,
+        dispatchGenerationTime: "05:30",
+      },
+    });
+
+    // 4. Create Owner user account as ADMIN scoped to this branch
+    const hashedPassword = await bcrypt.hash(dto.ownerPassword, 10);
+    const createdUser = await this.userRepo.create({
+      displayName: dto.ownerName.trim(),
+      email: dto.ownerEmail.toLowerCase().trim(),
+      password: hashedPassword,
+      role: UserRole.ADMIN,
+      branchIds: [branch._id.toString()],
+      permissions: [
+        Permission.HOUSEKEEPING_INSPECT,
+        Permission.HOUSEKEEPING_STATUS,
+        Permission.DISPATCH_MANAGE,
+        Permission.PICKUP_EXECUTE,
+        Permission.STAFF_MANAGE,
+        Permission.NOTIFICATIONS_READ,
+      ],
+      isEmailVerified: true,
+      isSuspended: false,
+    });
+
+    // 5. Generate authenticated session tokens for immediate login
+    const authResult = await this.authService.login(createdUser);
+
+    return {
+      branch,
+      user: authResult.user,
+      tokens: authResult.tokens,
+    };
+  }
 
   private async resolveBranch(idOrCode: string): Promise<BranchDocument> {
     if (Types.ObjectId.isValid(idOrCode)) {
