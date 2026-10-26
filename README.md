@@ -431,3 +431,20 @@ npm run start:dev
 # 4. Verify API health
 curl http://localhost:8080/api/health
 ```
+
+---
+
+## 7. Documentation Index
+
+Comprehensive guides, domain specifications, and operational manuals are maintained across the repository:
+
+- [**`PRODUCT.md`**](./PRODUCT.md): Hospitality operating system vision, product-to-code mapping, invariants, and business rules.
+- [**`docs/DATA_MODEL.md`**](./docs/DATA_MODEL.md): Full MongoDB Entity-Relationship Diagrams (ERD), schema field specifications, and state machine transitions.
+- [**`docs/SYSTEM_FLOWS.md`**](./docs/SYSTEM_FLOWS.md): Detailed operational workflows and sequence diagrams for inventory holds, checkout, and morning dispatch.
+- [**`docs/FRONTEND_API.md`**](./docs/FRONTEND_API.md): Exhaustive REST API contract with request/response schemas and TypeScript interfaces.
+- [**`docs/MULTI_TENANCY.md`**](./docs/MULTI_TENANCY.md): Subdomain routing rules, logical multi-tenant partitioning, compound index strategy, and zero-leak access guards.
+- [**`docs/OPERATING_RULES.md`**](./docs/OPERATING_RULES.md): Core hospitality business logic, checkout rules, cancellation policies, and inventory invariants.
+- [**`docs/STORAGE.md`**](./docs/STORAGE.md): Cloudflare R2 object storage architecture, presigned upload URLs, and image delivery.
+- [**`docs/LINE_SETUP.md`**](./docs/LINE_SETUP.md): LINE Official Account messaging integration and driver dispatch card setup.
+- [**`n8n/README.md`**](./n8n/README.md): Webhook bus configuration, stateful workflow automation, and agentic AI concierge pipeline.
+- [**`src/seed/seed.ts`**](./src/seed/seed.ts): Executable reference hotel implementation (`BKK-RIVERSIDE`, 40 rooms, 2 restaurants, 4 services, and realistic order book).
