@@ -14,7 +14,7 @@ Yoonie employs host-based multi-tenancy routing across three web surfaces and on
                                       │
          ┌────────────────────────────┼────────────────────────────┐
          │                            │                            │
-   [ yoonie.si ]             [ sedona.yoonie.si ]           [ ops.yoonie.si ]
+   [ yoonie.app ]             [ sedona.yoonie.app ]           [ ops.yoonie.app ]
          │                            │                            │
  ┌───────┴────────┐           ┌───────┴────────┐           ┌───────┴────────┐
  │ Platform Root  │           │ Tenant Booking │           │ Operator Hub   │
@@ -33,21 +33,21 @@ Yoonie employs host-based multi-tenancy routing across three web surfaces and on
 
 ## 2. The Three Web Surfaces
 
-### Surface A: Platform Root (`yoonie.si`)
+### Surface A: Platform Root (`yoonie.app`)
 * **Target Audience:** Prospective hotel owners, hospitality operators, and enterprise executives.
 * **Purpose:** Public platform front door, feature marketing, ROI proof points, and tenant onboarding.
 * **Key User Flow:**
-  1. An independent hotel owner (e.g., owner of *Sedona Hotel & Resort*) visits `yoonie.si`.
+  1. An independent hotel owner (e.g., owner of *Sedona Hotel & Resort*) visits `yoonie.app`.
   2. Clicks **"Create Hotel Workspace"**.
   3. Registers hotel details, chooses their unique tenant slug (`sedona`), and binds payment.
   4. The platform provisions:
-     - The guest-facing direct booking website: `sedona.yoonie.si`
+     - The guest-facing direct booking website: `sedona.yoonie.app`
      - The tenant entry in the centralized database: `Tenant { slug: "sedona", name: "Sedona Hotel & Resort" }`
 
 ---
 
-### Surface B: Guest Direct-Booking Engine (`[tenant].yoonie.si`)
-* **Example:** `sedona.yoonie.si` (or custom CNAME `stay.sedonabangkok.com`)
+### Surface B: Guest Direct-Booking Engine (`[tenant].yoonie.app`)
+* **Example:** `sedona.yoonie.app` (or custom CNAME `stay.sedonabangkok.com`)
 * **Target Audience:** Guests booking directly with that specific property.
 * **Strict Isolation Constraints:**
   - **Zero Admin / Ops Leaks:** Guests never see operational dashboards, run-sheets, or admin toolbars.
@@ -57,18 +57,18 @@ Yoonie employs host-based multi-tenancy routing across three web surfaces and on
   - 5-Star luxury room catalog with high-resolution media galleries.
   - Composite shopping cart (Room + Airport Pickup + Dining Table + Longtail Boat Tour in 1 checkout).
   - 15-minute atomic inventory hold protection.
-  - Guest self-service portal (`sedona.yoonie.si/account`) for reservation status.
+  - Guest self-service portal (`sedona.yoonie.app/account`) for reservation status.
 
 ---
 
-### Surface C: Central Operator Hub (`ops.yoonie.si`)
+### Surface C: Central Operator Hub (`ops.yoonie.app`)
 * **Target Audience:** Hotel owners, general managers, dispatchers, and front-desk supervisors.
 * **Single Sign-In Architecture:**
-  - Every hotel owner and staff supervisor logs in at **one unified URL**: `ops.yoonie.si`.
+  - Every hotel owner and staff supervisor logs in at **one unified URL**: `ops.yoonie.app`.
   - There is no separate login portal for each hotel property.
 * **RBAC & Workspace Resolution Flow:**
   ```
-  1. Owner enters email & password at ops.yoonie.si/login
+  1. Owner enters email & password at ops.yoonie.app/login
   2. Backend authenticates credentials
   3. RBAC Engine inspects User Profile:
      ├── User: "Anan Boonmee"
@@ -78,7 +78,7 @@ Yoonie employs host-based multi-tenancy routing across three web surfaces and on
      └── If multi-property owner: Top property switcher dropdown activates
   5. Owner lands on the Sedona Operations Dashboard
   ```
-* **Core Capabilities within `ops.yoonie.si`:**
+* **Core Capabilities within `ops.yoonie.app`:**
   - **Admin Property CMS:** Configure physical room inventory, dining table zones, shifts, tour pricing models, and upload media directly to Cloudflare R2.
   - **Frontline Operations Run-Sheet (`/ops/dispatch`):** 
     - Automated daily 05:30 operational run-sheet.
@@ -94,7 +94,7 @@ Yoonie employs host-based multi-tenancy routing across three web surfaces and on
 * **Target Audience:** Drivers, housekeepers, and floor attendants on iOS and Android devices.
 * **Distribution:** Native app (Expo / React Native).
 * **Operational Flow:**
-  1. Staff members **cannot** publicly self-register; accounts are provisioned by the Branch Manager inside `ops.yoonie.si`.
+  1. Staff members **cannot** publicly self-register; accounts are provisioned by the Branch Manager inside `ops.yoonie.app`.
   2. Driver Somchai or Housekeeper Noi logs in via `yoonie-mobile-staff`.
   3. The mobile session validates `branchIds` and inspects `jobTitle`:
      - `jobTitle: "DRIVER"` ➔ Routes to `/(app)/driver` (Airport pickups, flight ETA, terminal doors, trip lifecycle).
@@ -110,7 +110,7 @@ Here is how an order moves across all four surfaces without friction:
 
 ```
 [ Step 1: Guest Books ]
-Guest visits: sedona.yoonie.si
+Guest visits: sedona.yoonie.app
 Selects: Riverside Villa + Airport Transfer (Flight TG917, Gate 4)
 Pays: ฿12,500 via composite checkout
                               │
@@ -124,7 +124,7 @@ Pays: ฿12,500 via composite checkout
                               │
                               ▼
 [ Step 3: Owner / Dispatcher Coordinates ]
-Dispatcher logs in at: ops.yoonie.si
+Dispatcher logs in at: ops.yoonie.app
 Views: 05:30 Daily Dispatch Hub
 Selects task: "Pickup for Flight TG917"
 Action:
@@ -136,9 +136,9 @@ Action:
 [ Step 4: Driver Executes on Mobile ]
 Driver Somchai receives task on: yoonie-mobile-staff
 • Sees passenger name, flight number, meeting door
-• Taps: "Start Trip" (ops.yoonie.si updates to IN_PROGRESS)
+• Taps: "Start Trip" (ops.yoonie.app updates to IN_PROGRESS)
 • Picks up guest at Gate 4
-• Taps: "Trip Completed" (ops.yoonie.si updates to DONE)
+• Taps: "Trip Completed" (ops.yoonie.app updates to DONE)
 ```
 
 ---
@@ -155,16 +155,16 @@ export function proxy(req: NextRequest) {
   const url = req.nextUrl;
 
   // 1. Operator Portal
-  if (host === "ops.yoonie.si" || host.startsWith("ops.")) {
+  if (host === "ops.yoonie.app" || host.startsWith("ops.")) {
     return NextResponse.rewrite(new URL(`/ops-portal${url.pathname}`, req.url));
   }
 
   // 2. Platform Landing & Registration
-  if (host === "yoonie.si" || host === "www.yoonie.si") {
+  if (host === "yoonie.app" || host === "www.yoonie.app") {
     return NextResponse.rewrite(new URL(`/platform${url.pathname}`, req.url));
   }
 
-  // 3. Tenant Subdomains: [tenant].yoonie.si
+  // 3. Tenant Subdomains: [tenant].yoonie.app
   const subdomain = host.split(".")[0];
   return NextResponse.rewrite(new URL(`/tenant/${subdomain}${url.pathname}`, req.url));
 }

@@ -13,7 +13,7 @@ CLOUDFLARE_R2_ACCOUNT_ID="your-cloudflare-account-id"
 CLOUDFLARE_R2_ACCESS_KEY_ID="your-r2-access-key-id"
 CLOUDFLARE_R2_SECRET_ACCESS_KEY="your-r2-secret-access-key"
 CLOUDFLARE_R2_BUCKET_NAME="yoonie-media"
-CLOUDFLARE_R2_PUBLIC_URL="https://images.yoonie.si"
+CLOUDFLARE_R2_PUBLIC_URL="https://images.yoonie.app"
 ```
 
 ### Where to get these values in Cloudflare Dashboard:
@@ -26,7 +26,7 @@ CLOUDFLARE_R2_PUBLIC_URL="https://images.yoonie.si"
    * Copy the **Access Key ID** $\rightarrow$ `CLOUDFLARE_R2_ACCESS_KEY_ID`.
    * Copy the **Secret Access Key** $\rightarrow$ `CLOUDFLARE_R2_SECRET_ACCESS_KEY`.
 5. Under your Bucket settings $\rightarrow$ **Public Access**:
-   * Enable a **Custom Domain** (e.g. `images.yoonie.si`) or enable the free **R2.dev subdomain** (e.g. `https://pub-xxx.r2.dev`) $\rightarrow$ `CLOUDFLARE_R2_PUBLIC_URL`.
+   * Enable a **Custom Domain** (e.g. `images.yoonie.app`) or enable the free **R2.dev subdomain** (e.g. `https://pub-xxx.r2.dev`) $\rightarrow$ `CLOUDFLARE_R2_PUBLIC_URL`.
 
 ---
 
@@ -68,7 +68,7 @@ To keep the NestJS backend lightweight and fast, image binaries are **NOT** rout
   "data": {
     "uploadUrl": "https://<account_id>.r2.cloudflarestorage.com/yoonie-media/rooms/1729267200000-a1b2c3d4.webp?X-Amz-Algorithm=...",
     "key": "rooms/1729267200000-a1b2c3d4.webp",
-    "publicUrl": "https://images.yoonie.si/rooms/1729267200000-a1b2c3d4.webp",
+    "publicUrl": "https://images.yoonie.app/rooms/1729267200000-a1b2c3d4.webp",
     "expiresInSeconds": 900
   }
 }
@@ -95,7 +95,7 @@ curl -X POST 'http://localhost:8080/api/storage/upload?folder=rooms' \
   "statusCode": 201,
   "data": {
     "key": "rooms/1729267200000-a1b2c3d4.jpg",
-    "url": "https://images.yoonie.si/rooms/1729267200000-a1b2c3d4.jpg",
+    "url": "https://images.yoonie.app/rooms/1729267200000-a1b2c3d4.jpg",
     "contentType": "image/jpeg",
     "sizeBytes": 1048576
   }
@@ -198,9 +198,9 @@ The API follows the standard industry pattern (used by Airbnb, Stripe, and Shopi
     "name": "Chiang Mai Mountain Sanctuary",
     "timezone": "Asia/Bangkok",
     "currency": "THB",
-    "logoUrl": "https://images.yoonie.si/branches/cnx-logo.webp",
-    "heroImageUrl": "https://images.yoonie.si/branches/cnx-hero.webp",
-    "images": ["https://images.yoonie.si/branches/cnx-1.webp"]
+    "logoUrl": "https://images.yoonie.app/branches/cnx-logo.webp",
+    "heroImageUrl": "https://images.yoonie.app/branches/cnx-hero.webp",
+    "images": ["https://images.yoonie.app/branches/cnx-1.webp"]
   }
   ```
 
@@ -214,8 +214,8 @@ The API follows the standard industry pattern (used by Airbnb, Stripe, and Shopi
     "maxOccupancy": 2,
     "baseRateThb": 2200,
     "amenities": ["King Bed", "Smart TV"],
-    "coverImage": "https://images.yoonie.si/rooms/101-cover.webp",
-    "images": ["https://images.yoonie.si/rooms/101-1.webp"]
+    "coverImage": "https://images.yoonie.app/rooms/101-cover.webp",
+    "images": ["https://images.yoonie.app/rooms/101-1.webp"]
   }
   ```
 
@@ -226,7 +226,7 @@ The API follows the standard industry pattern (used by Airbnb, Stripe, and Shopi
     "code": "RIV-TERRACE",
     "name": "The Riverside Terrace",
     "cuisine": "Modern Thai & Seafood",
-    "coverImage": "https://images.yoonie.si/restaurants/terrace.webp"
+    "coverImage": "https://images.yoonie.app/restaurants/terrace.webp"
   }
   ```
 
@@ -240,7 +240,7 @@ The API follows the standard industry pattern (used by Airbnb, Stripe, and Shopi
     "name": "Private Longtail Boat Canal Tour",
     "basePriceThb": 2500,
     "pricingModel": "PER_PAX",
-    "coverImage": "https://images.yoonie.si/services/longtail.webp"
+    "coverImage": "https://images.yoonie.app/services/longtail.webp"
   }
   ```
 
