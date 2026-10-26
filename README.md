@@ -1,357 +1,433 @@
-# Yoonie Backend
+# Yoonie Backend — Architecture & System Engine
 
-A unified hospitality operating system for independent boutique hotels and multi-service operators — direct booking plus operational dispatch, in one native data model.
+A unified hospitality operating system for independent boutique hotels and multi-service operators — direct booking plus operational dispatch, in one native multi-tenant data model.
 
-This README is the high-level overview: who we are, the problem, the solution, what's offered, the schema, and the request flows for both guests and property owners/staff. For implementation-level detail see [`PRODUCT.md`](./PRODUCT.md) (product-to-code mapping, gaps, invariants) and [`docs/DATA_MODEL.md`](./docs/DATA_MODEL.md) (full entity-relationship and state diagrams).
-
----
-
-## Who We Are
-
-Yoonie is a unified hospitality operating system built specifically for independent boutique hotels and multi-service operators. We replace fragmented legacy software by bridging direct online booking with on-the-ground resource dispatch. By uniting accommodations, dining outlets, and guest experiences into a single native data architecture, we empower independent property owners to break free from high-commission Online Travel Agencies (OTAs), establish direct guest relationships, and run synchronized, high-margin frontline operations.
-
-## Problem Statement
-
-Independent hospitality businesses operate in an OTA hostage crisis and a state of severe internal fragmentation:
-
-- **Margin erosion & lost ownership** — Operators surrender 15–25% of top-line revenue to third-party booking platforms (Booking.com, Agoda, Viator). In return, they receive masked guest contacts, zero customer-data ownership, and blind marketing spend with no direct conversion attribution.
-- **The "volume vs. value" operational trap** — Properties spend disproportionate operational effort managing high-volume, low-margin transactions (F&B accounts for ~67% of transactional lines but only ~10% of revenue), while their primary revenue generators — rooms, tours, and transfers (~90% of revenue) — suffer from operational blind spots.
-- **Siloed systems & experience friction** — Hotels run room bookings on legacy PMS, dining on disconnected POS terminals, and tours/airport transfers on paper clipboards or messaging apps. This disconnection causes severe operational friction: check-in delays average a low 3.1/5.0 customer satisfaction score, tour dissatisfaction reaches nearly 20% due to schedule rigidity, and over half of booking pipeline value is lost to unconfirmed reservations, cancellations, and no-shows.
-
-## Solution
-
-An end-to-end platform that captures first-party bookings at the digital front door and immediately synchronizes back-of-house operations:
-
-- **Direct-Channel Sovereignty** — A lightweight, headless direct-booking engine embedded on the hotel's website lets guests reserve rooms, restaurant tables, excursions, and airport transfers in a single unified cart — eliminating OTA commissions and securing direct guest communication channels (WhatsApp and LINE).
-- **Single Source of Operational Truth** — By standardizing customer identity, transactions, and marketing attribution into a centralized first-party data engine, the property tracks exact Return on Ad Spend (ROAS) and captures complete guest context prior to arrival.
-- **Actionable Morning Dispatch** — Rather than passive historical dashboards, the system acts as an operational air-traffic controller: deterministic business logic turns live booking data into immediate, prioritized instructions for housekeeping, fleet drivers, and tour guides before doors open each morning.
-
-## What We Offer
-
-1. **Unified Multi-Service Booking Engine** — A seamless, embeddable checkout for the operator's website. Guests build a composite itinerary — a room stay, dining slots, excursions, airport transfers — in a single high-conversion transaction that logs source marketing campaigns (UTM parameters) natively.
-2. **Master Guest CDP & Attribution Engine** — A centralized customer-data layer unifying guest identity across every touchpoint: verified phone numbers, messaging handles, flight details, and lifetime spend, giving full clarity on channel performance and campaign ROI.
-3. **Front-Desk Zero Housekeeping Dispatch** — An automated room-turnaround queue that calculates cleaning urgency from inbound transit logistics and flight arrival windows, so rooms are cleaned in order of arriving guests, not room number.
-4. **Fleet & Tour Yield Optimizer** — A capacity-management engine that flags under-viable tour/excursion departures hours before departure, saving fuel and crew overhead while protecting review sentiment.
-5. **Automated Guest Transit Hub** — A proactive messaging microservice generating bilingual (English/Thai) airport pickup cards via WhatsApp and LINE, with terminal doors, driver details, and plate numbers.
+This repository is built with **NestJS 10**, **Express**, **MongoDB Atlas (Native Driver / Mongoose)**, **TypeScript**, and **n8n Webhook Orchestration**.
 
 ---
 
-## Architecture Overview
+## 1. Master Backend Architecture Topology
 
-NestJS 11 on MongoDB/Mongoose, deployed to Vercel. Each operational concern is an independent, bounded domain module (`*.module.ts` / `*.controller.ts` / `*.service.ts` / `*.repo.ts` / `entity/` / `dto/`). Shared primitives (timezone handling, business-date math, guards, decorators, enums) live in `src/common/`.
+```
+========================================================================================================================
+                              YOONIE BACKEND DISTRIBUTED ARCHITECTURE & EXECUTION FLOW
+========================================================================================================================
 
-```mermaid
-graph TD
-    UserModule["UserModule<br/>(Staff & Guests / CDP)"]
-    BranchModule["BranchModule<br/>(Property Settings)"]
-    RoomModule["RoomModule<br/>(Keys & Housekeeping)"]
-    RestaurantModule["RestaurantModule<br/>(Dining & Tables)"]
-    ServiceModule["ServiceModule<br/>(Tours, Spa, Transfers)"]
-
-    InventoryModule["InventoryModule<br/>(Slots, Holds & Sweeper)"]
-    OrderModule["OrderModule<br/>(Composite Cart & Booking)"]
-    DispatchModule["DispatchModule<br/>(Morning Run-Sheet & Tasks)"]
-
-    BranchModule --> RoomModule
-    BranchModule --> RestaurantModule
-    BranchModule --> ServiceModule
-    BranchModule --> InventoryModule
-
-    InventoryModule --> OrderModule
-    UserModule --> OrderModule
-
-    OrderModule --> DispatchModule
-    RoomModule --> DispatchModule
-    ServiceModule --> DispatchModule
+    [ Inbound Ingress via Vercel Edge / Cloudflare Anycast ]
+    Headers: Authorization: Bearer <JWT> | Idempotency-Key: <UUID> | X-Tenant-Slug / Host: sedona.yoonie.app
+                               │
+                               ▼
+┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ ZERO-TRUST SECURITY & AUTHORIZATION PIPELINE                                                                         │
+│                                                                                                                      │
+│  1. Rate Limiting:        ThrottlerGuard (Token bucket rate limiter: 120 req/min per IP/Tenant)                       │
+│  2. Identity:             JwtAuthGuard (Validates 15-minute HMAC-SHA256 JWT access token)                            │
+│  3. Refresh Rotation:     /api/auth/refresh (Rotates 7-day cryptographic refresh token; revokes family on reuse)     │
+│  4. Tenant Isolation:     TenantContextGuard (Enforces request.branchId ∈ user.branchIds; zero data leakage)        │
+│  5. 5-Tier RBAC Matrix:   RolesGuard (@Roles: ADMIN > BRANCH_MGR > DISPATCHER > STAFF > GUEST)                       │
+│  6. Idempotency Lock:     IdempotencyInterceptor (Deduplicates mutation requests via atomic UUID locking)           │
+└──────────────────────────────────────────────────────────┬───────────────────────────────────────────────────────────┘
+                                                           │
+                                                           ▼
+┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ 14 MODULAR NESTJS BOUNDED CONTEXT DOMAINS                                                                            │
+│                                                                                                                      │
+│  ┌─────────────────────────┐  ┌─────────────────────────┐  ┌─────────────────────────┐  ┌─────────────────────────┐  │
+│  │ AuthModule              │  │ BranchModule            │  │ RoomModule              │  │ RestaurantModule        │  │
+│  │ User identity, bcrypt,  │  │ Multi-tenant property   │  │ Physical room keys,     │  │ F&B outlets, seating    │  │
+│  │ JWT & refresh families  │  │ rules, tax & timezones  │  │ cleaning status board   │  │ shifts & table configs  │  │
+│  └─────────────────────────┘  └─────────────────────────┘  └─────────────────────────┘  └─────────────────────────┘  │
+│  ┌─────────────────────────┐  ┌─────────────────────────┐  ┌─────────────────────────┐  ┌─────────────────────────┐  │
+│  │ ServiceModule           │  │ InventoryModule         │  │ OrderModule             │  │ DispatchModule          │  │
+│  │ Excursions, boat tours, │  │ Atomic CAS allocation & │  │ Composite cart checkout │  │ 05:30 morning dispatch  │  │
+│  │ spa & fleet catalog     │  │ 15-min hold leases      │  │ with UTM attribution    │  │ runner & transit engine │  │
+│  └─────────────────────────┘  └─────────────────────────┘  └─────────────────────────┘  └─────────────────────────┘  │
+│  ┌─────────────────────────┐  ┌─────────────────────────┐  ┌─────────────────────────┐  ┌─────────────────────────┐  │
+│  │ StaffModule             │  │ DevicesModule           │  │ NotificationsModule     │  │ AssistantModule         │  │
+│  │ Frontline mobile staff  │  │ Mobile FCM device token │  │ WhatsApp Cloud API &    │  │ AI Concierge & tool     │  │
+│  │ rosters (drivers/maids) │  │ registry for push sync  │  │ LINE official webhooks  │  │ execution orchestrator  │  │
+│  └─────────────────────────┘  └─────────────────────────┘  └─────────────────────────┘  └─────────────────────────┘  │
+└───────────────────────────────┬──────────────────────────────────────────────────────────┬───────────────────────────┘
+                                │                                                          │
+                                ▼                                                          ▼
+┌──────────────────────────────────────────────────────────────┐  ┌────────────────────────────────────────────────────┐
+│ CONCURRENCY, ATOMIC LOCKING & PERSISTENCE TIER               │  │ ASYNC ORCHESTRATION & NOTIFICATION CHANNELS        │
+│                                                              │  │                                                    │
+│  • Atomic CAS Inventory Decrement ($inc with precondition):  │  │  • n8n Webhook Cluster:                            │
+│    findOneAndUpdate({ slotId, available: { $gte: qty } },    │  │    Event dispatcher for async external systems     │
+│                     { $inc: { available: -qty, held: +qty } })│  │                                                    │
+│  • 15-Min TTL Hold Sweeper (CRON: * * * * *):                │  │  • Agentic AI Concierge Pipeline:                  │
+│    Finds expired unpurchased holds and reverts capacity      │  │    Real-time tool execution against database       │
+│  • 05:30 Morning Dispatch Runner (CRON: 30 5 * * *):         │  │    (Availability queries, booking verification)    │
+│    Pre-computes airport driver manifests and housekeeping    │  │                                                    │
+│  • MongoDB Atlas Multi-Tenant Replica Set Cluster:           │  │  • Multi-Channel Gateway:                          │
+│    Single database with compound indexing: { branchId, ... } │  │    WhatsApp Business API • LINE Official • Google  │
+│    Full multi-document ACID transactions                     │  │    FCM Push (yoonie-mobile-staff) • Twilio SMS     │
+└──────────────────────────────────────────────────────────────┘  └────────────────────────────────────────────────────┘
 ```
 
-**Module boundaries:**
-1. `RoomModule` manages physical rooms and housekeeping state. It **never** computes availability.
-2. `InventoryModule` manages sellable slot units (`ROOM_NIGHT`, `DINING`, `SERVICE`) via atomic conditional `$inc` operations — the entire concurrency model, used identically across every product type.
-3. `OrderModule` orchestrates composite bookings across stays, dining, and activities. On payment, it calls `InventoryModule.confirm()`.
-4. `DispatchModule` reads `OrderModule`, `RoomModule`, and `ServiceModule` to generate idempotent daily run-sheets (dedupe-keyed, safe to regenerate).
+---
+
+## 2. Complete 9-Collection Schema & Compound Index Matrix
+
+All 9 collections reside in a single MongoDB database partitioned logically by `branchId` (tenant isolation).
+
+```
+┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ MONGODB 9-COLLECTION MULTI-TENANT SCHEMA & INDEX TOPOLOGY                                                            │
+└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+  1. branches (Tenant Configurations & Operational Policies)
+     ├── _id: ObjectId
+     ├── code: String [UNIQUE] (e.g. "BKK-RIVERSIDE")
+     ├── name: String ("Sedona Hotel & Resort")
+     ├── slug: String [UNIQUE] ("sedona")
+     ├── timezone: String ("Asia/Bangkok")
+     ├── currency: String ("THB")
+     └── settings: Object { vatRate, serviceChargeRate, holdTtlMinutes: 15, dispatchGenerationTime: "05:30" }
+     └── INDEXES: { slug: 1 } [UNIQUE], { code: 1 } [UNIQUE]
+
+  2. users (Unified Identities: Guests, Staff, Supervisors & Owners)
+     ├── _id: ObjectId
+     ├── email: String [UNIQUE]
+     ├── passwordHash: String (Bcrypt)
+     ├── role: Enum ["ADMIN", "BRANCH_MGR", "DISPATCHER", "STAFF", "GUEST"]
+     ├── branchIds: Array<ObjectId> (Multi-tenant property memberships)
+     ├── jobTitle: Enum ["DRIVER", "HOUSEKEEPER", "BUTLER", "CONCIERGE"]
+     ├── phoneE164: String ("+66810000001")
+     ├── lineUserId: String / whatsappOptIn: Boolean
+     ├── stats: Object { lifetimeSpendThb, stayCount, orderCount }
+     └── vipScore: Number (0 to 100, drives housekeeping priority)
+     └── INDEXES: { email: 1 } [UNIQUE], { branchIds: 1, role: 1 }, { phoneE164: 1 }
+
+  3. rooms (Physical Keys & Housekeeping Turnover Board)
+     ├── _id: ObjectId
+     ├── branchId: ObjectId [FK -> branches._id]
+     ├── roomNumber: String ("101", "PV2")
+     ├── roomType: Enum ["STANDARD_KING", "DELUXE_BALCONY", "POOL_VILLA"]
+     ├── cleaningStatus: Enum ["DIRTY", "IN_PROGRESS", "CLEAN", "INSPECTED"]
+     ├── floor: Number
+     └── isSmoking: Boolean / activeTask: ObjectId [FK -> operational_dispatches._id]
+     └── INDEXES: { branchId: 1, roomNumber: 1 } [UNIQUE], { branchId: 1, cleaningStatus: 1 }
+
+  4. restaurants (F&B Outlets, Shifts & Table Configs)
+     ├── _id: ObjectId
+     ├── branchId: ObjectId [FK -> branches._id]
+     ├── code: String ("RIV-TERRACE")
+     ├── name: String ("Riverside Terrace")
+     ├── tables: Array<{ tableId, capacity, zone: "INDOOR" | "OUTDOOR" | "RIVERFRONT" }>
+     └── shifts: Array<{ shiftName: "BREAKFAST" | "ALL_DAY" | "EVENING", startsAt, endsAt }>
+     └── INDEXES: { branchId: 1, code: 1 } [UNIQUE]
+
+  5. services (Experiences, Tours, Airport Fleet & Wellness)
+     ├── _id: ObjectId
+     ├── branchId: ObjectId [FK -> branches._id]
+     ├── code: String ("TOUR-ISLANDS")
+     ├── category: Enum ["TOURS", "WELLNESS", "TRANSPORT"]
+     ├── kind: Enum ["AIRPORT_TRANSFER", "SCHEDULED_TOUR", "SPA_TREATMENT"]
+     ├── pricing: Object { basePriceThb, minViablePax: 4, fixedCostThb: 3500 }
+     └── vehicles: Array<{ vehicleId, plateNumber, capacity, defaultDriverId }>
+     └── INDEXES: { branchId: 1, code: 1 } [UNIQUE], { branchId: 1, category: 1 }
+
+  6. inventory_slots (Atomic Unit of Bookable Capacity)
+     ├── _id: ObjectId
+     ├── slotKey: String [UNIQUE] ("branch_01:ROOM_NIGHT:DELUXE:2026-10-27")
+     ├── branchId: ObjectId [FK -> branches._id]
+     ├── kind: Enum ["ROOM_NIGHT", "DINING", "SERVICE"]
+     ├── resourceId: ObjectId [FK -> rooms / restaurants / services]
+     ├── startsAt: Date / endsAt: Date
+     ├── capacity: Number (Maximum physical slots)
+     ├── held: Number (Temporary 15-minute cart holds)
+     └── booked: Number (Confirmed paid orders)
+     └── INDEXES: { slotKey: 1 } [UNIQUE], { branchId: 1, kind: 1, startsAt: 1 }
+
+  7. inventory_holds (15-Minute Temporary Soft Holds)
+     ├── _id: ObjectId
+     ├── branchId: ObjectId [FK -> branches._id]
+     ├── cartId: String (Client session UUID)
+     ├── lines: Array<{ slotKey, quantity }>
+     ├── status: Enum ["ACTIVE", "CONVERTED", "RELEASED", "EXPIRED"]
+     ├── expiresAt: Date (NOW + 15 minutes)
+     └── purgeAt: Date (MongoDB TTL index: automatically deletes document)
+     └── INDEXES: { cartId: 1 }, { branchId: 1, status: 1, expiresAt: 1 }, { purgeAt: 1 } [TTL: 0s]
+
+  8. orders (Composite Multi-Item Guest Reservations)
+     ├── _id: ObjectId
+     ├── branchId: ObjectId [FK -> branches._id]
+     ├── orderNumber: String [UNIQUE] ("ORD-20261027-001")
+     ├── guestId: ObjectId [FK -> users._id]
+     ├── holdId: ObjectId [FK -> inventory_holds._id]
+     ├── status: Enum ["PENDING", "CONFIRMED", "CANCELLED", "COMPLETED"]
+     ├── idempotencyKey: String [UNIQUE] (UUID from client header)
+     ├── items: Array<{
+     │     kind: "STAY" | "DINING" | "SERVICE",
+     │     amountThb: Number,
+     │     assignedRoomId: ObjectId,
+     │     flightInfo: { flightNumber, scheduledArrival, airportDoor },
+     │     status: "PENDING" | "CONFIRMED" | "CANCELLED"
+     │   }>
+     ├── totalAmountThb: Number
+     └── attribution: Object { utmSource, utmMedium, utmCampaign, channel: "DIRECT" | "OTA" }
+     └── INDEXES: { branchId: 1, orderNumber: 1 } [UNIQUE], { idempotencyKey: 1 } [UNIQUE], { branchId: 1, status: 1 }
+
+  9. operational_dispatches (Automated Daily 05:30 Run-Sheet)
+     ├── _id: ObjectId
+     ├── branchId: ObjectId [FK -> branches._id]
+     ├── serviceDate: String ("2026-10-27")
+     ├── type: Enum ["HOUSEKEEPING_TURNAROUND", "TOUR_CONSOLIDATION", "AIRPORT_PICKUP"]
+     ├── priorityScore: Number (Computed dynamic score: earlier ETA + VIP status)
+     ├── status: Enum ["OPEN", "ACKNOWLEDGED", "IN_PROGRESS", "DONE", "DISMISSED"]
+     ├── assigneeUserId: ObjectId [FK -> users._id] (Driver / Housekeeper)
+     ├── dedupeKey: String [UNIQUE] (branchId:serviceDate:type:key — ensures idempotent cron runs)
+     └── payload: Object {
+           roomId, roomNumber, incomingGuestName, flightNumber, meetingDoor,
+           fillRate, minViablePax, projectedLossThb, recommendation
+         }
+     └── INDEXES: { dedupeKey: 1 } [UNIQUE], { branchId: 1, serviceDate: 1, status: 1, priorityScore: -1 }
+```
 
 ---
 
-## Schema
-
-Nine MongoDB collections. `Branch` is the tenant root; `Room`/`Restaurant`/`Service` are static catalogs; `InventorySlot`/`InventoryHold` are the concurrency engine; `Order` is the guest-facing booking; `OperationalDispatch` is the generated run-sheet.
+## 3. Entity-Relationship Diagram (ERD)
 
 ```mermaid
 erDiagram
-    BRANCH ||--o{ USER : "staff assigned via branchIds"
-    BRANCH ||--o{ ROOM : "owns"
-    BRANCH ||--o{ RESTAURANT : "owns"
-    BRANCH ||--o{ SERVICE : "owns"
-    BRANCH ||--o{ INVENTORY_SLOT : "owns"
-    BRANCH ||--o{ INVENTORY_HOLD : "owns"
-    BRANCH ||--o{ ORDER : "owns"
-    BRANCH ||--o{ OPERATIONAL_DISPATCH : "owns"
+    BRANCH ||--o{ USER : "assigns staff & scopes guests"
+    BRANCH ||--o{ ROOM : "owns physical keys"
+    BRANCH ||--o{ RESTAURANT : "owns outlets"
+    BRANCH ||--o{ SERVICE : "owns excursions & fleet"
+    BRANCH ||--o{ INVENTORY_SLOT : "owns capacity"
+    BRANCH ||--o{ INVENTORY_HOLD : "owns cart holds"
+    BRANCH ||--o{ ORDER : "owns revenue & bookings"
+    BRANCH ||--o{ OPERATIONAL_DISPATCH : "owns daily tasks"
 
-    ROOM ||--o{ INVENTORY_SLOT : "resourceId (kind=ROOM_NIGHT)"
-    RESTAURANT ||--o{ INVENTORY_SLOT : "resourceId (kind=DINING)"
-    SERVICE ||--o{ INVENTORY_SLOT : "resourceId (kind=SERVICE)"
-    SERVICE }o--o{ USER : "vehicles[].defaultDriverId"
+    ROOM ||--o{ INVENTORY_SLOT : "resourceId (ROOM_NIGHT)"
+    RESTAURANT ||--o{ INVENTORY_SLOT : "resourceId (DINING)"
+    SERVICE ||--o{ INVENTORY_SLOT : "resourceId (SERVICE)"
 
-    INVENTORY_HOLD ||--|{ INVENTORY_SLOT : "lines[].slotKey (held qty)"
-    INVENTORY_HOLD |o--o| ORDER : "claimed by, via order.holdId"
+    INVENTORY_HOLD ||--|{ INVENTORY_SLOT : "locks slotKey"
+    INVENTORY_HOLD |o--o| ORDER : "converted via holdId"
 
     USER ||--o{ ORDER : "guestId"
-    ORDER ||--|{ ORDER_LINE : "items[]"
-    ORDER_LINE }o--o| ROOM : "stay.assignedRoomId"
-    ORDER_LINE }o--o| RESTAURANT : "dining.restaurantId"
-    ORDER_LINE }o--o| SERVICE : "service.serviceId"
-    ORDER_LINE }o--o{ INVENTORY_SLOT : "slotRefs[].slotKey"
-
-    ORDER ||--o{ OPERATIONAL_DISPATCH : "orderId"
-    ROOM ||--o{ OPERATIONAL_DISPATCH : "roomId"
-    SERVICE ||--o{ OPERATIONAL_DISPATCH : "serviceId"
-    USER ||--o{ OPERATIONAL_DISPATCH : "assigneeUserId / driverUserId"
-
-    BRANCH {
-        string code UK
-        string timezone
-        string currency
-        object settings "vatRate / serviceChargeRate / holdTtlMinutes / consolidationThreshold / dispatchGenerationTime"
-    }
-    USER {
-        string email UK
-        string role "user / admin / BRANCH_MGR / DISPATCHER / STAFF / GUEST"
-        string phoneE164
-        string lineUserId
-        bool whatsappOptIn
-        object stats "lifetimeSpendThb / stayCount / orderCount"
-        number vipScore
-    }
-    ROOM {
-        string roomNumber UK "unique per branch"
-        string roomType "STANDARD_KING / DELUXE_BALCONY / POOL_VILLA"
-        string cleaningStatus "CLEAN / DIRTY / IN_PROGRESS / INSPECTED"
-    }
-    RESTAURANT {
-        string code UK "unique per branch"
-        object_array tables
-        object_array shifts
-    }
-    SERVICE {
-        string code UK "unique per branch"
-        string category "TOURS / WELLNESS / TRANSPORT"
-        string kind "AIRPORT_TRANSFER / SCHEDULED_TOUR / SPA_TREATMENT"
-    }
-    INVENTORY_SLOT {
-        string slotKey UK "branch+kind+resourceKey+startsAt"
-        string kind "ROOM_NIGHT / DINING / SERVICE"
-        number capacity
-        number held
-        number booked
-    }
-    INVENTORY_HOLD {
-        string cartId
-        object_array lines "slotKey + qty"
-        string status "ACTIVE / CONVERTED / RELEASED / EXPIRED"
-        date expiresAt
-        date purgeAt "TTL index"
-    }
-    ORDER {
-        string orderNumber UK
-        string status "PENDING / CONFIRMED / CANCELLED / COMPLETED"
-        object attribution "utmSource + utmCampaign + channel"
-        string idempotencyKey UK
-    }
-    ORDER_LINE {
-        string kind "STAY / DINING / SERVICE"
-        string status "PENDING / CONFIRMED / CANCELLED / COMPLETED / NO_SHOW"
-    }
-    OPERATIONAL_DISPATCH {
-        string type "HOUSEKEEPING_TURNAROUND / TOUR_CONSOLIDATION / AIRPORT_PICKUP"
-        string severity "INFO / WARN / CRITICAL"
-        string status "OPEN / ACKNOWLEDGED / IN_PROGRESS / DONE / DISMISSED"
-        string dedupeKey UK "unique per branch, date, type"
-    }
-```
-
-Full field-level schema and all five state diagrams (Order, OrderLine, InventorySlot, InventoryHold, Room, Dispatch) live in [`docs/DATA_MODEL.md`](./docs/DATA_MODEL.md).
-
----
-
-## Guest-Facing Flows
-
-### Booking a composite itinerary (room + dining + tour)
-
-```mermaid
-sequenceDiagram
-    actor Guest
-    participant Widget as Booking Widget
-    participant Inventory as InventoryModule
-    participant Order as OrderModule
-
-    Guest->>Widget: Select room, dining slot, tour
-    Widget->>Inventory: GET /inventory/availability
-    Inventory-->>Widget: available count per date range
-
-    Guest->>Widget: Add to cart, proceed to checkout
-    Widget->>Inventory: POST /inventory/hold<br/>{branchId, cartId, lines[], ttlMinutes}
-    Inventory->>Inventory: atomic $inc held per slot<br/>(sorted by slotKey, deadlock-safe)
-    Inventory-->>Widget: InventoryHold {status: ACTIVE, expiresAt}
-
-    Guest->>Widget: Enter payment details
-    Widget->>Order: POST /orders<br/>{items[], attribution: utm*, holdId}
-    Order-->>Widget: Order {status: PENDING}
-
-    Guest->>Widget: Confirm payment
-    Widget->>Order: POST /orders/:id/confirm<br/>{paymentRef, paidThb}
-    Order->>Inventory: confirm(holdId, orderId)
-    Inventory->>Inventory: claim hold, held -> booked<br/>per slot (atomic)
-    Inventory-->>Order: hold CONVERTED
-    Order-->>Widget: Order {status: CONFIRMED}
-    Widget-->>Guest: Booking confirmed
-```
-
-Every order carries `attribution` (UTM source/medium/campaign/channel) captured at the point of booking — this is the mechanism behind direct-booking ROI tracking against OTA dependence.
-
-### What happens if the guest abandons checkout
-
-```mermaid
-sequenceDiagram
-    participant Guest
-    participant Inventory as InventoryModule
-    participant Sweeper as sweepExpired() job
-
-    Guest->>Inventory: POST /inventory/hold (ttlMinutes: 15)
-    Note over Guest,Inventory: Guest closes the tab, never confirms
-
-    loop Periodic sweep
-        Sweeper->>Inventory: findExpiredHolds(batch)
-        Inventory->>Inventory: release() each stale hold:<br/>held decremented back to slot
-        Inventory->>Inventory: hold.status -> EXPIRED
-    end
-    Note over Inventory: Capacity returns to the<br/>sellable pool automatically
-```
-
-### Airport pickup (transit hub)
-
-```mermaid
-sequenceDiagram
-    actor Guest
-    participant Order as OrderModule
-    participant Dispatch as DispatchModule
-    participant Rules as dispatch-rules.ts
-    participant Msg as WhatsApp / LINE
-
-    Guest->>Order: Books airport transfer with flight number
-    Note over Order: ServiceDetail.FlightInfo stored<br/>(scheduled + estimated arrival)
-
-    Dispatch->>Order: read confirmed transfer lines for serviceDate
-    Dispatch->>Rules: pickupPriority(estimatedAt)
-    Rules-->>Dispatch: priority score (earliest arrival first)
-    Dispatch->>Rules: buildPickupCard({guestName, flightNumber, meetingDoor, driver, plate})
-    Rules-->>Dispatch: {en, th} bilingual card text
-    Dispatch->>Dispatch: upsertDispatch(dedupeKey) — AIRPORT_PICKUP
-
-    Msg-->>Guest: Pickup card delivered<br/>(channel field ready, sender not yet wired)
+    ORDER ||--|{ INVENTORY_SLOT : "slotRefs[]"
+    ORDER ||--o{ OPERATIONAL_DISPATCH : "triggers pickup/cleaning"
+    ROOM ||--o{ OPERATIONAL_DISPATCH : "assigned roomId"
+    USER ||--o{ OPERATIONAL_DISPATCH : "assigneeUserId (Driver/Maid)"
 ```
 
 ---
 
-## Owner/Staff-Facing Flows
+## 4. Backend Execution Sequence Flows
 
-### The 05:30 morning dispatch generation
-
+### A. Zero-Trust Authentication & Token Family Rotation
 ```mermaid
 sequenceDiagram
-    participant Scheduler as Scheduled job<br/>(branch.settings.dispatchGenerationTime)
-    participant Dispatch as DispatchModule
-    participant Room as RoomModule
-    participant Order as OrderModule
-    participant Service as ServiceModule
-    participant Rules as dispatch-rules.ts
+    autonumber
+    actor Client as Frontend / Mobile App
+    participant Auth as AuthController (:8080)
+    participant Guard as TenantContextGuard
+    participant DB as MongoDB Atlas (users & tokens)
 
-    Scheduler->>Room: read today's arrivals + current cleaningStatus
-    Scheduler->>Order: read confirmed order lines for serviceDate
-    Scheduler->>Service: read tour/transfer departures for serviceDate
+    Note over Client,Auth: 1. Authoritative Login (/api/auth/login)
+    Client->>Auth: POST { email, password }
+    Auth->>DB: Find user & verify bcrypt password hash
+    DB-->>Auth: User { role: "BRANCH_MGR", branchIds: ["branch_01"] }
+    Note over Auth: Issues 15-Minute HMAC-SHA256 JWT Access Token<br/>Issues 7-Day Cryptographic Refresh Token with Family Hash
+    Auth-->>Client: { accessToken, refreshToken, user }
 
-    loop Each dirty room with an arriving guest
-        Scheduler->>Rules: housekeepingPriority(etaAt, isVip)
-        Rules-->>Scheduler: score (earlier ETA + VIP bump wins)
-        Scheduler->>Dispatch: upsertDispatch(dedupeKey) — HOUSEKEEPING_TURNAROUND
+    Note over Client,Guard: 2. Authenticated API Request with Tenant Validation
+    Client->>Guard: GET /api/v1/rooms?branchId=branch_01<br/>Header: Bearer <accessToken>
+    Guard->>Guard: Validate JWT signature & claims
+    Guard->>Guard: Verify requested branchId ∈ user.branchIds
+    alt Branch Access Permitted
+        Guard-->>Auth: Route allowed
+        Auth->>DB: Query rooms for branch_01
+        DB-->>Client: HTTP 200 OK
+    else Cross-Tenant Contamination Attempt
+        Guard-->>Client: HTTP 403 Forbidden ("Tenant Access Denied")
     end
 
-    loop Each tour/transfer departure today
-        Scheduler->>Rules: evaluateConsolidation({booked, capacity, minViablePax, fixedCostThb})
-        Rules-->>Scheduler: {flag, severity, recommendation, projectedLossThb}
-        alt fillRate below threshold
-            Scheduler->>Dispatch: upsertDispatch(dedupeKey) — TOUR_CONSOLIDATION
+    Note over Client,Auth: 3. Silent Refresh & Family Reuse Detection
+    Client->>Auth: POST /api/auth/refresh { userId, refreshToken }
+    Auth->>DB: Find token family
+    alt Token Valid
+        Auth->>DB: Atomically rotate refresh token
+        Auth-->>Client: { accessToken: "new_jwt", refreshToken: "new_rt" }
+    else Token Reuse Detected (Attack / Leak)
+        Auth->>DB: Invalidate ALL tokens in this user's family
+        Auth-->>Client: HTTP 401 Unauthorized ("Token Family Revoked")
+    end
+```
+
+### B. High-Concurrency CAS Inventory Decrement & 15-Minute Hold Release
+```mermaid
+sequenceDiagram
+    autonumber
+    actor GuestA as Guest A (Mobile)
+    actor GuestB as Guest B (Web)
+    participant API as InventoryController
+    participant DB as MongoDB Atlas
+    participant Sweeper as 60-Sec Cron Sweeper
+
+    Note over GuestA,GuestB: Final Pool Villa Available (Capacity: 1, Held: 0, Booked: 0)
+
+    par Parallel Hold Request
+        GuestA->>API: POST /api/inventory/hold { slotKey, qty: 1 }
+        GuestB->>API: POST /api/inventory/hold { slotKey, qty: 1 }
+    end
+
+    rect rgb(20, 30, 45)
+        Note over API,DB: Atomic CAS: findOneAndUpdate({ slotKey, available: { $gte: 1 } }, { $inc: { held: +1 } })
+        API->>DB: Execute Atomic CAS for Guest A
+        DB-->>API: Slot Updated: Available 1 -> 0, Held 0 -> 1
+        API->>DB: insertOne(inventory_holds, { cartId, status: "ACTIVE", expiresAt: NOW + 15m })
+        API-->>GuestA: HTTP 201 Created (Hold ID: hold_101)
+    end
+
+    rect rgb(45, 20, 25)
+        API->>DB: Execute Atomic CAS for Guest B
+        Note over DB: Precondition Failed: available is now 0!
+        DB-->>API: null (Zero documents updated)
+        API-->>GuestB: HTTP 409 Conflict ("Inventory Sold Out")
+    end
+
+    opt Guest A Abandons Checkout
+        Note over Sweeper,DB: 15 Minutes Elapse Without Payment
+        Sweeper->>DB: find({ status: "ACTIVE", expiresAt: { $lte: NOW } })
+        DB-->>Sweeper: [ hold_101 ]
+        Sweeper->>DB: updateOne({ slotKey }, { $inc: { held: -1 } })
+        Sweeper->>DB: updateOne({ _id: hold_101 }, { $set: { status: "EXPIRED" } })
+        Note over DB: Capacity returned to public pool automatically!
+    end
+```
+
+### C. Automated 05:30 Morning Dispatch Run-Sheet Engine
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Cron as Scheduler (30 5 * * *)
+    participant Dispatch as DispatchModule
+    participant Rules as dispatch-rules.ts
+    participant DB as MongoDB Atlas
+    participant FCM as Mobile Push Gateway
+
+    Cron->>Dispatch: executeDailyMorningDispatch()
+    Dispatch->>DB: Query confirmed orders for today
+    DB-->>Dispatch: Orders [ Room check-ins, TG917 flight transfers, Island boat tours ]
+
+    loop Housekeeping Turnaround Prioritization
+        Dispatch->>Rules: housekeepingPriority(guestArrivalEta, isVip)
+        Rules-->>Dispatch: priorityScore (Early ETA + VIP score wins)
+        Dispatch->>DB: upsertDispatch(dedupeKey, HOUSEKEEPING_TURNAROUND)
+    end
+
+    loop Tour Yield Consolidation Heuristic
+        Dispatch->>Rules: evaluateConsolidation({ bookedCount, minViablePax: 4, fixedCostThb: 3500 })
+        alt Booked < minViablePax
+            Rules-->>Dispatch: Flag WARNING: Projected loss ฿2,100. Recommend MERGE_OR_CANCEL.
+            Dispatch->>DB: upsertDispatch(dedupeKey, TOUR_CONSOLIDATION)
         end
     end
 
-    loop Each confirmed airport transfer today
-        Scheduler->>Rules: buildPickupCard(...)
-        Scheduler->>Dispatch: upsertDispatch(dedupeKey) — AIRPORT_PICKUP
+    loop Airport Driver Roster Matching
+        Dispatch->>Rules: buildPickupCard({ flight: "TG917", door: "Gate 4", driver: "Somchai" })
+        Rules-->>Dispatch: Bilingual { en, th } Pickup Card
+        Dispatch->>DB: upsertDispatch(dedupeKey, AIRPORT_PICKUP)
     end
 
-    Note over Dispatch: dedupeKey (branch+date+type+key) makes<br/>re-running this job idempotent
+    Dispatch->>FCM: Broadcast task sync to yoonie-mobile-staff
+    Note over Dispatch: 05:30 operational run-sheet live for staff!
 ```
 
-> The rules above (`dispatch-rules.ts`) are implemented and exercised by the seed script; the actual cron trigger for this job is not yet wired — see [`PRODUCT.md`](./PRODUCT.md#4-current-state-vs-gaps).
-
-### Staff working the run-sheet
-
+### D. Grounded AI Concierge & Real-Time RAG Tool Loop
 ```mermaid
 sequenceDiagram
-    actor Staff
-    participant Dispatch as DispatchModule
+    autonumber
+    actor Guest as Guest (WhatsApp / LINE)
+    participant N8N as n8n Webhook Bus
+    participant LLM as Agentic LLM Orchestrator
+    participant Backend as AssistantController (:8080)
+    participant DB as MongoDB Atlas
 
-    Staff->>Dispatch: GET /dispatch?branchId&serviceDate&type
-    Dispatch-->>Staff: tasks sorted by priorityScore desc
+    Guest->>N8N: "Can I reserve Table 4 at Riverside Terrace tonight at 7 PM for 2?"
+    N8N->>LLM: Ingest User Message + Hotel Context (branchId: "bkk_riverside")
+    Note over LLM: Intent Recognized: Dining Table Reservation<br/>Generates Tool Call: query_table_availability()
+    
+    LLM->>Backend: POST /api/assistant/tool-exec<br/>{ tool: "query_table", branchId: "bkk_riverside", date: "2026-10-27", shift: "EVENING", pax: 2 }
+    Backend->>DB: Query restaurants collection for shift capacity
+    DB-->>Backend: Table 4 (Riverfront Zone) Available
+    Backend-->>LLM: { status: "AVAILABLE", tableId: "T4", zone: "Riverfront" }
 
-    Staff->>Dispatch: PATCH /dispatch/:id/status {status: ACKNOWLEDGED}
-    Staff->>Dispatch: PATCH /dispatch/:id/status {status: IN_PROGRESS, assigneeUserId}
-    Note over Staff: Housekeeper cleans the room /<br/>driver completes the pickup
-    Staff->>Dispatch: PATCH /dispatch/:id/status {status: DONE}
-    Dispatch->>Dispatch: completedAt = now()
-```
-
-### Tour/fleet consolidation decision
-
-```mermaid
-sequenceDiagram
-    actor Manager
-    participant Dispatch as DispatchModule
-    participant Order as OrderModule
-
-    Manager->>Dispatch: GET /dispatch?type=TOUR_CONSOLIDATION&status=OPEN
-    Dispatch-->>Manager: ConsolidationPayload {fillRate, booked, minViablePax,<br/>projectedLossThb, recommendation}
-
-    alt recommendation: MERGE_OR_CANCEL
-        Manager->>Order: contact booked guests, offer alternate departure/refund
-        Manager->>Dispatch: PATCH status -> DONE
-    else recommendation: WATCH
-        Manager->>Dispatch: PATCH status -> ACKNOWLEDGED (monitor until cutoff)
-    end
-```
-
-### Housekeeping board
-
-```mermaid
-sequenceDiagram
-    actor Housekeeper
-    participant Room as RoomModule
-
-    Housekeeper->>Room: GET /rooms/housekeeping?branchId
-    Room-->>Housekeeper: {inspected[], clean[], inProgress[], dirty[]}
-
-    Housekeeper->>Room: PATCH /rooms/:id/cleaning {cleaningStatus: IN_PROGRESS}
-    Note over Housekeeper: Finishes cleaning
-    Housekeeper->>Room: PATCH /rooms/:id/cleaning {cleaningStatus: CLEAN}
-    Note over Room: Supervisor later inspects
-    Housekeeper->>Room: PATCH /rooms/:id/cleaning {cleaningStatus: INSPECTED}
+    Note over LLM: Formats VIP response in English/Thai
+    LLM-->>N8N: "Table 4 on the Riverfront Terrace is available for 7:00 PM! Shall I lock this reservation for you?"
+    N8N->>Guest: Delivered instantly via WhatsApp Cloud API
 ```
 
 ---
 
-## Where to Look
+## 5. State Transition Machine Lifecycles
 
-- [`PRODUCT.md`](./PRODUCT.md) — product pillars mapped to code, current gaps, invariants to preserve.
-- [`docs/DATA_MODEL.md`](./docs/DATA_MODEL.md) — full ER diagram with every field, plus all state diagrams.
-- [`src/seed/seed.ts`](./src/seed/seed.ts) — a complete worked example: BKK-RIVERSIDE, a Bangkok riverside boutique hotel (40 rooms, 2 restaurants, 4 services, a realistic order book with varied UTM attribution).
-- [`src/dispatch/rules/dispatch-rules.ts`](./src/dispatch/rules/dispatch-rules.ts) — the clearest expression of product logic in pure, DB-free functions.
+### A. Order Status State Machine
+```mermaid
+stateDiagram-v2
+    [*] --> PENDING: Guest initiates composite cart checkout
+    PENDING --> CONFIRMED: Payment authorized & hold converted to booked
+    PENDING --> CANCELLED: Payment failed or cart abandoned
+    CONFIRMED --> COMPLETED: Stay, dining, and tours fulfilled
+    CONFIRMED --> REFUNDED: Guest or operator cancels reservation
+    COMPLETED --> [*]
+    REFUNDED --> [*]
+```
+
+### B. Inventory Hold Lifecycle
+```mermaid
+stateDiagram-v2
+    [*] --> ACTIVE: Atomic CAS increments held count; 15m lease starts
+    ACTIVE --> CONVERTED: Order confirmed; held decremented, booked incremented
+    ACTIVE --> EXPIRED: 15-minute lease timer expires
+    ACTIVE --> RELEASED: Guest manually removes item from cart
+    EXPIRED --> [*]: 60s sweeper reverts held count to available
+    RELEASED --> [*]: Capacity restored immediately
+    CONVERTED --> [*]
+```
+
+### C. Room Cleaning Status Lifecycle
+```mermaid
+stateDiagram-v2
+    [*] --> DIRTY: Morning departure / Guest checkout
+    DIRTY --> IN_PROGRESS: Housekeeper swipes "Start Cleaning" on mobile
+    IN_PROGRESS --> CLEAN: Housekeeper finishes turnaround & submits checklist
+    CLEAN --> INSPECTED: Supervisor verifies room inside /ops/housekeeping
+    INSPECTED --> OCCUPIED: Front desk checks in arriving guest
+    OCCUPIED --> DIRTY: Guest departs
+```
+
+### D. Operational Dispatch Task Lifecycle
+```mermaid
+stateDiagram-v2
+    [*] --> OPEN: Generated by 05:30 morning dispatch engine
+    OPEN --> ACKNOWLEDGED: Dispatcher assigns staff member
+    ACKNOWLEDGED --> IN_PROGRESS: Driver arrives at airport terminal gate
+    IN_PROGRESS --> DONE: Guest delivered safely to lobby
+    OPEN --> DISMISSED: Tour merged or flight cancelled
+    DONE --> [*]
+    DISMISSED --> [*]
+```
+
+---
+
+## 6. Local Setup & Verification
+
+```bash
+# 1. Install dependencies
+npm install
+
+# 2. Seed database with realistic multi-tenant hotel data (BKK-RIVERSIDE)
+npm run seed
+
+# 3. Start development server
+npm run start:dev
+
+# 4. Verify API health
+curl http://localhost:8080/api/health
+```

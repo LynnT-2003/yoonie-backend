@@ -258,6 +258,15 @@ async function main() {
     ["Somchai Rattana", UserRole.STAFF, "somchai", "+66810000006", "DRIVER"],
     ["Prasit Kaew", UserRole.STAFF, "prasit", "+66810000007", "DRIVER"],
   ];
+  const FIXED_STAFF_IDS: Record<string, string> = {
+    kanya: "665a1b2c3d4e5f6a7b8c0001",
+    anan: "665a1b2c3d4e5f6a7b8c0002",
+    mali: "665a1b2c3d4e5f6a7b8c0003",
+    noi: "665a1b2c3d4e5f6a7b8c0004",
+    dao: "665a1b2c3d4e5f6a7b8c0005",
+    somchai: "665a1b2c3d4e5f6a7b8c0006",
+    prasit: "665a1b2c3d4e5f6a7b8c0007",
+  };
   const staff: Record<string, HydratedDocument<User>> = {};
   for (const [fullName, role, handle, phoneE164, jobTitle] of staffDefs) {
     const permissions = [...ROLE_PERMISSIONS[role]];
@@ -269,6 +278,7 @@ async function main() {
     }
 
     staff[handle] = (await M.user.create({
+      _id: new Types.ObjectId(FIXED_STAFF_IDS[handle]),
       displayName: fullName,
       role,
       email: `${handle}@riverside-bkk.example`,
@@ -1216,10 +1226,18 @@ async function main() {
     const offset = rIdx % 3;
     let currDay = 1 + offset;
 
-    while (currDay <= 28) {
+    const demoRooms = new Set(["305", "105", "PV2", "PV1", "108", "205", "201"]);
+    while (currDay <= 31) {
       const stayNights = currDay % 2 === 0 ? 3 : 2;
       const checkInDay = currDay;
-      const checkOutDay = currDay + stayNights;
+      let checkOutDay = currDay + stayNights;
+      if (demoRooms.has(roomNumber) && checkOutDay > 31) {
+        checkOutDay = 31;
+      }
+      if (checkOutDay <= checkInDay) {
+        currDay += stayNights + 1;
+        continue;
+      }
       const checkInDate = `2026-10-${String(checkInDay).padStart(2, "0")}`;
       const checkOutDate =
         checkOutDay <= 31
@@ -1878,21 +1896,33 @@ async function main() {
     }
 
     if (dispatchesForDay.length) {
-      await M.dispatch.insertMany(dispatchesForDay, { ordered: false });
+      const seen = new Set<string>();
+      const unique = dispatchesForDay.filter((d) => {
+        const k = `${d.branchId}:${d.serviceDate}:${d.type}:${d.dedupeKey}`;
+        if (seen.has(k)) return false;
+        seen.add(k);
+        return true;
+      });
+      await M.dispatch.insertMany(unique, { ordered: false });
     }
   }
 
-  // 1. Live board for Demo Day (Nov 1)
-  await generateDispatchesForDate(DEMO_DATE, false);
-
-  // 2. Live board for Today (if today != Nov 1, e.g. Oct 27 testing)
-  if (TODAY !== DEMO_DATE) {
-    await generateDispatchesForDate(TODAY, false);
+  // Oct 1 → yesterday: DONE (hotel has been running)
+  {
+    let d = "2026-10-01";
+    while (d < TODAY) {
+      await generateDispatchesForDate(d, true);
+      d = addDays(d, 1);
+    }
   }
 
-  // 3. Completed historical dispatches across representative October dates
-  for (const d of ["2026-10-05", "2026-10-12", "2026-10-19", "2026-10-24"]) {
-    await generateDispatchesForDate(d, true);
+  // Today → Nov 1: OPEN (live / upcoming including demo day)
+  {
+    let d = TODAY;
+    while (d <= DEMO_DATE) {
+      await generateDispatchesForDate(d, false);
+      d = addDays(d, 1);
+    }
   }
 
   /* ---- 14. Frontline Notifications (Targeted Per Staff Role) */
