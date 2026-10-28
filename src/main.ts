@@ -4,12 +4,17 @@ import { AppModule } from "./app.module";
 import { buildAPIDocs } from "./common/config/api-docs.config";
 import { join } from "path";
 import { NestExpressApplication } from "@nestjs/platform-express";
+import { json, urlencoded } from "express";
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     rawBody: true,
   });
   const configService = app.get(ConfigService);
+
+  // ─── Body Parser Limits (Allow high-res photography uploads) ──────────────────
+  app.use(json({ limit: "25mb" }));
+  app.use(urlencoded({ limit: "25mb", extended: true }));
 
   // ─── Static Assets ────────────────────────────────────────────────────────────
   app.useStaticAssets(join(__dirname, "..", "assets"), { prefix: "/assets" });
