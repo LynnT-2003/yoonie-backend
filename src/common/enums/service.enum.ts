@@ -14,4 +14,7 @@ export enum PricingModel {
   PER_PAX = "PER_PAX",
   PER_VEHICLE = "PER_VEHICLE",
   PER_TREATMENT = "PER_TREATMENT",
+  PER_GUEST = "PER_GUEST",
+  PER_BOOKING = "PER_BOOKING",
+  PER_DAY = "PER_DAY",
 }
