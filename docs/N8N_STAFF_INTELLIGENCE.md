@@ -70,69 +70,169 @@ flowchart TD
 
 ---
 
-## 👔 4. Plain English Guide for Business Owners (BOs): The 4 Core Tools & 20 Questions
+## 👔 4. Plain English Guide for Business Owners (BOs): The 4 Core Tools
 
-A Business Owner (BO) doesn't want code or database schema terms. The BO assistant uses **4 core intelligence tools** to query live data and give clear, actionable English answers.
+A Business Owner (BO) doesn't need to know technical database schema terms. The assistant uses **4 primary intelligence tools** to query live operational data:
 
-### 📊 The 4 Core BO Intelligence Tools:
-1. **`owner_insights`** (Financials & Strategy): Total sales, direct bookings, OTA commission savings (18% benchmark), marketing channels (TikTok, LINE, Google), transfer volume spikes, and room turnaround SLA.
-2. **`services_now`** (Experience Profitability): Tour departures, boat/van passenger fill rate vs fixed operating costs, and tour profitability / loss warnings.
-3. **`guests_now`** (Guest Value & Balances): Who is staying tonight, highest-spending VIPs, repeat guests, and unpaid guest balances before checkout.
-4. **`rooms_now` / `todays_jobs`** (Real-Time Frontline): Dirty vs clean rooms, arrival ready-by times, flight delays, and driver pickup status.
+### 1. `owner_insights` (Financials & Marketing ROI)
+- **What it answers:** Total sales, direct bookings vs OTA revenue, money saved skipping Booking.com/Agoda fees (18%), marketing channel ROI (LINE, WhatsApp, TikTok, Google), and day-of-week transfer volume spikes.
+- **Backend source:** `orders` + `dispatch` + `ops-board/insights`
 
----
+### 2. `services_now` (Tour & Experience Profitability)
+- **What it answers:** Whether scheduled boat cruises or van tours are making money or operating at a loss against fixed costs, plus spa room capacity.
+- **Backend source:** `inventory_slots` + `services`
 
-### 📋 The 20 Business Owner Questions (Plain English):
+### 3. `guests_now` (Guest Value & Balances)
+- **What it answers:** Who our highest-spending VIPs are, who stays repeatedly, and who has unpaid balances before checkout.
+- **Backend source:** `users` (CDP stats & VIP score) + `orders`
 
-#### Category 1: Revenue, Profit & Marketing ROI (`owner_insights`)
-
-| # | Question Asked by BO (Sam) | Tool Used | How Yoonie Gets the Answer (Plain English for BOs) | Exact Conversational Reply to BO |
-|---|---|---|---|---|
-| **1** | *"How much money did we save skipping Booking.com and Agoda commissions?"* | `owner_insights` | Takes total direct booking revenue and multiplies by the 18% standard OTA fee. | *"We saved **฿1,020,318 THB** by skipping Booking.com and Agoda commissions based on **฿5,668,432 THB** in direct bookings."* |
-| **2** | *"What percentage of our bookings came directly through our own website and chat?"* | `owner_insights` | Compares direct website/LINE orders against OTA orders in the ledger. | *"100% of your bookings came directly through your own channels (472 orders), meaning zero revenue lost to OTAs."* |
-| **3** | *"Which marketing channel brought us the most revenue this month?"* | `owner_insights` | Breaks down order attribution tags by source (LINE, WhatsApp, TikTok, Instagram, Google). | *"LINE generated the most revenue at **฿863,918 THB** (54 orders), closely followed by WhatsApp at **฿860,152 THB** (53 orders)."* |
-| **4** | *"Is our TikTok marketing actually bringing paying guests or just views?"* | `owner_insights` | Checks verified completed orders tagged with TikTok campaign UTMs. | *"Yes, TikTok generated **51 confirmed bookings** totaling **฿833,910 THB** with an average spend of ฿16,350 per stay."* |
-| **5** | *"What is our overall revenue for this period?"* | `owner_insights` | Sums verified confirmed guest orders including rooms, dining, and activities. | *"Total gross direct revenue across all 472 confirmed bookings is **฿5,657,900 THB**."* |
-| **6** | *"What is our average room turnaround time across housekeeping?"* | `owner_insights` | Calculates the time between checkout inspection and room marked clean. | *"Housekeeping averages **34 minutes per room**, well within your 45-minute quality standard."* |
+### 4. `rooms_now` & `todays_jobs` (Real-Time Property Status)
+- **What it answers:** Occupancy percentage tonight, dirty vs inspected rooms, and flight-tracked airport pickups with delay alerts.
+- **Backend source:** `rooms` + `dispatch`
 
 ---
 
-#### Category 2: Staffing, Fleet & Logistics (`owner_insights` & `todays_jobs`)
-
-| # | Question Asked by BO (Sam) | Tool Used | How Yoonie Gets the Answer (Plain English for BOs) | Exact Conversational Reply to BO |
-|---|---|---|---|---|
-| **7** | *"When do transfer requests spike, and do we need a second driver?"* *(Pitch Reel Question)* | `owner_insights` | Groups all airport transfers by day of the week and detects volume peaks. | *"Airport pickups spike heavily on **Saturdays (43 transfers)**—that is **14x normal volume**. Schedule an extra driver."* |
-| **8** | *"Who needs airport pickup today, and are any flights delayed?"* | `todays_jobs` | Checks today's transfer run-sheet and live flight radar tracking. | *"3 pickups scheduled today: 11:30 AM (Driver Prasit), 2:15 PM (Driver Somchai), and 6:00 PM (Unassigned). TG642 is delayed 45 minutes."* |
-| **9** | *"Which rooms should housekeeping clean first today?"* | `todays_jobs` | Matches room cleaning status with guest flight arrival times and VIP status. | *"Clean Room 204 first—guest lands at 11:30 AM and is a VIP. Room 301 arrives late at 8:00 PM, so clean it last."* |
-| **10** | *"Are any staff members overloaded with tasks today?"* | `todays_jobs` | Counts active tasks assigned to each staff member on today's run-sheet. | *"Noi has 5 rooms to clean while Dao only has 2. I recommend reassigning Room 203 to Dao."* |
+## 📋 5. The 20 Business Owner Questions (Card Layout)
 
 ---
 
-#### Category 3: Tour & Activity Profitability (`services_now`)
+### Category A: Revenue, Profit & Marketing ROI (`owner_insights`)
 
-| # | Question Asked by BO (Sam) | Tool Used | How Yoonie Gets the Answer (Plain English for BOs) | Exact Conversational Reply to BO |
-|---|---|---|---|---|
-| **11** | *"Are our tours making money or running at a loss?"* | `services_now` | Compares total guest ticket revenue against boat/van fixed operating costs. | *"The Sunset Cruise is profitable on weekends, but this Friday's cruise only has 2 passengers and will lose ฿1,600 THB unless consolidated."* |
-| **12** | *"Should we cancel or merge the Friday boat cruise?"* | `services_now` | Checks minimum viable passenger threshold (6 pax needed to break even). | *"With only 2 passengers against a ฿4,000 fixed boat cost, you should merge them into Saturday's 4:30 PM cruise."* |
-| **13** | *"How full is our spa today?"* | `services_now` | Checks booked treatment rooms and therapist hours for today. | *"Spa is at 75% capacity today with 6 of 8 therapy slots booked. 2 slots remain open between 3:00 PM and 5:00 PM."* |
+#### 1. "How much money did we save skipping Booking.com and Agoda commissions?"
+- **Tool:** `owner_insights`
+- **How Yoonie gets it:** Multiplies total direct bookings by the standard 18% OTA fee.
+- **Yoonie's Answer:**
+  > *"We saved **฿1,020,318 THB** by skipping Booking.com and Agoda commissions based on **฿5,668,432 THB** in direct bookings."*
+
+#### 2. "What percentage of our bookings came directly through our own website and chat?"
+- **Tool:** `owner_insights`
+- **How Yoonie gets it:** Compares direct website/LINE orders against OTA orders in the ledger.
+- **Yoonie's Answer:**
+  > *"100% of your bookings came directly through your own channels (472 orders), meaning zero commission lost to OTAs."*
+
+#### 3. "Which marketing channel brought us the most revenue this month?"
+- **Tool:** `owner_insights`
+- **How Yoonie gets it:** Ranks order totals by marketing tags (LINE, WhatsApp, TikTok, Google).
+- **Yoonie's Answer:**
+  > *"LINE generated the most revenue at **฿863,918 THB** (54 orders), closely followed by WhatsApp at **฿860,152 THB** (53 orders)."*
+
+#### 4. "Is our TikTok marketing actually bringing paying guests or just views?"
+- **Tool:** `owner_insights`
+- **How Yoonie gets it:** Checks verified completed orders tagged with TikTok campaign UTMs.
+- **Yoonie's Answer:**
+  > *"Yes, TikTok generated **51 confirmed bookings** totaling **฿833,910 THB** with an average spend of ฿16,350 per stay."*
+
+#### 5. "What is our overall revenue for this period?"
+- **Tool:** `owner_insights`
+- **How Yoonie gets it:** Sums all confirmed guest bookings (rooms, dining, and activities).
+- **Yoonie's Answer:**
+  > *"Total gross direct revenue across all 472 confirmed bookings is **฿5,657,900 THB**."*
+
+#### 6. "What is our average room turnaround time across housekeeping?"
+- **Tool:** `owner_insights`
+- **How Yoonie gets it:** Calculates the time between checkout inspection and room marked clean.
+- **Yoonie's Answer:**
+  > *"Housekeeping averages **34 minutes per room**, well within your 45-minute quality standard."*
 
 ---
 
-#### Category 4: High-Value Guests & Front Desk Collections (`guests_now` & `rooms_now`)
+### Category B: Staffing, Fleet & Logistics (`owner_insights` & `todays_jobs`)
 
-| # | Question Asked by BO (Sam) | Tool Used | How Yoonie Gets the Answer (Plain English for BOs) | Exact Conversational Reply to BO |
-|---|---|---|---|---|
-| **14** | *"Who are our highest-spending VIP guests in house right now?"* | `guests_now` | Scans guest lifetime spend and VIP score in the guest CDP profile. | *"Mr. David Kim in Room 201 has spent ฿124,000 THB across 4 stays. Elena Rossi in Room 104 is on her 3rd stay."* |
-| **15** | *"Which guests have unpaid balances or open folios before checkout?"* | `guests_now` | Checks room billing folios for outstanding charges. | *"3 departing guests have unpaid balances totaling ฿14,200 THB (Room 105: ฿6,800, Room 202: ฿4,400, Room 301: ฿3,000)."* |
-| **16** | *"What is our room occupancy rate tonight?"* | `rooms_now` | Counts occupied rooms divided by total physical rooms (40 units). | *"Occupancy tonight is **85%** (34 of 40 rooms occupied). 6 rooms remain available for walk-ins or same-day bookings."* |
-| **17** | *"Which rooms are currently dirty and need inspection?"* | `rooms_now` | Checks real-time room housekeeping states. | *"Rooms 101, 105, and 203 are DIRTY. Room 102 is currently being cleaned by Noi."* |
-| **18** | *"How many repeat guests do we have arriving this week?"* | `guests_now` | Filters upcoming 7-day arrivals by stay history count (>1 previous stay). | *"8 returning guests are arriving over the next 7 days, representing 32% of all upcoming arrivals."* |
-| **19** | *"What was our night-time booking volume while staff were asleep?"* | `owner_insights` | Filters direct bookings completed between 11:00 PM and 7:00 AM. | *"14 guest conversations occurred overnight, producing 3 confirmed direct bookings worth ฿21,600 THB automatically."* |
-| **20** | *"Give me a 30-second executive summary of hotel performance."* | `owner_insights` | Generates a concise top-line brief combining revenue, savings, and alerts. | *"Direct bookings captured 100% of revenue (฿5.65M THB), saving ฿1.02M THB in OTA commissions. Housekeeping turnaround is 34 mins. Alert: Schedule an extra driver for Saturday's 43 pickups."* |
+#### 7. "When do transfer requests spike, and do we need a second driver?" *(The Reel Question)*
+- **Tool:** `owner_insights`
+- **How Yoonie gets it:** Groups all airport transfers by day of the week and detects volume peaks.
+- **Yoonie's Answer:**
+  > *"Airport pickups spike heavily on **Saturdays (43 transfers)**—that is **14x normal volume**. Schedule an extra driver."*
+
+#### 8. "Who needs airport pickup today, and are any flights delayed?"
+- **Tool:** `todays_jobs`
+- **How Yoonie gets it:** Checks today's transfer run-sheet and live flight radar tracking.
+- **Yoonie's Answer:**
+  > *"3 pickups scheduled today: 11:30 AM (Driver Prasit), 2:15 PM (Driver Somchai), and 6:00 PM (Unassigned). TG642 is delayed 45 minutes."*
+
+#### 9. "Which rooms should housekeeping clean first today?"
+- **Tool:** `todays_jobs`
+- **How Yoonie gets it:** Matches room cleaning status with guest flight arrival times and VIP status.
+- **Yoonie's Answer:**
+  > *"Clean Room 204 first—guest lands at 11:30 AM and is a VIP. Room 301 arrives late at 8:00 PM, so clean it last."*
+
+#### 10. "Are any staff members overloaded with tasks today?"
+- **Tool:** `todays_jobs`
+- **How Yoonie gets it:** Counts active tasks assigned to each staff member on today's run-sheet.
+- **Yoonie's Answer:**
+  > *"Noi has 5 rooms to clean while Dao only has 2. I recommend reassigning Room 203 to Dao."*
 
 ---
 
-## 🚀 5. Demo Seeder Script (`npm run seed:demo`)
+### Category C: Tour & Activity Profitability (`services_now`)
+
+#### 11. "Are our tours making money or running at a loss?"
+- **Tool:** `services_now`
+- **How Yoonie gets it:** Compares total guest ticket revenue against boat/van fixed operating costs.
+- **Yoonie's Answer:**
+  > *"The Sunset Cruise is profitable on weekends, but this Friday's cruise only has 2 passengers and will lose ฿1,600 THB unless consolidated."*
+
+#### 12. "Should we cancel or merge the Friday boat cruise?"
+- **Tool:** `services_now`
+- **How Yoonie gets it:** Checks minimum viable passenger threshold (6 pax needed to break even).
+- **Yoonie's Answer:**
+  > *"With only 2 passengers against a ฿4,000 fixed boat cost, you should merge them into Saturday's 4:30 PM cruise."*
+
+#### 13. "How full is our spa today?"
+- **Tool:** `services_now`
+- **How Yoonie gets it:** Checks booked treatment rooms and therapist hours for today.
+- **Yoonie's Answer:**
+  > *"Spa is at 75% capacity today with 6 of 8 therapy slots booked. 2 slots remain open between 3:00 PM and 5:00 PM."*
+
+---
+
+### Category D: High-Value Guests & Front Desk Collections (`guests_now` & `rooms_now`)
+
+#### 14. "Who are our highest-spending VIP guests in house right now?"
+- **Tool:** `guests_now`
+- **How Yoonie gets it:** Scans guest lifetime spend and VIP score in the guest profile.
+- **Yoonie's Answer:**
+  > *"Mr. David Kim in Room 201 has spent ฿124,000 THB across 4 stays. Elena Rossi in Room 104 is on her 3rd stay."*
+
+#### 15. "Which guests have unpaid balances or open folios before checkout?"
+- **Tool:** `guests_now`
+- **How Yoonie gets it:** Checks room billing folios for outstanding charges.
+- **Yoonie's Answer:**
+  > *"3 departing guests have unpaid balances totaling ฿14,200 THB (Room 105: ฿6,800, Room 202: ฿4,400, Room 301: ฿3,000)."*
+
+#### 16. "What is our room occupancy rate tonight?"
+- **Tool:** `rooms_now`
+- **How Yoonie gets it:** Counts occupied rooms divided by total physical rooms (40 units).
+- **Yoonie's Answer:**
+  > *"Occupancy tonight is **85%** (34 of 40 rooms occupied). 6 rooms remain available for walk-ins or same-day bookings."*
+
+#### 17. "Which rooms are currently dirty and need inspection?"
+- **Tool:** `rooms_now`
+- **How Yoonie gets it:** Checks real-time room housekeeping states.
+- **Yoonie's Answer:**
+  > *"Rooms 101, 105, and 203 are DIRTY. Room 102 is currently being cleaned by Noi."*
+
+#### 18. "How many repeat guests do we have arriving this week?"
+- **Tool:** `guests_now`
+- **How Yoonie gets it:** Filters upcoming 7-day arrivals by stay history count (>1 previous stay).
+- **Yoonie's Answer:**
+  > *"8 returning guests are arriving over the next 7 days, representing 32% of all upcoming arrivals."*
+
+#### 19. "What was our night-time booking volume while staff were asleep?"
+- **Tool:** `owner_insights`
+- **How Yoonie gets it:** Filters direct bookings completed between 11:00 PM and 7:00 AM.
+- **Yoonie's Answer:**
+  > *"14 guest conversations occurred overnight, producing 3 confirmed direct bookings worth ฿21,600 THB automatically."*
+
+#### 20. "Give me a 30-second executive summary of hotel performance."
+- **Tool:** `owner_insights`
+- **How Yoonie gets it:** Combines revenue, savings, housekeeping, and operational alerts into a quick brief.
+- **Yoonie's Answer:**
+  > *"Direct bookings captured 100% of revenue (฿5.65M THB), saving ฿1.02M THB in OTA commissions. Housekeeping turnaround is 34 mins. Alert: Schedule an extra driver for Saturday's 43 pickups."*
+
+---
+
+## 🚀 6. Demo Seeder Script (`npm run seed:demo`)
 
 To enable seamless live presentations without risking production data or getting 403 Forbidden errors:
 
