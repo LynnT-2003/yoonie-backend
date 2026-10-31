@@ -68,7 +68,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// The gate: only a signed-in Yoonie staff member gets this far, and every tool runs as them\nconst me = $json.data;\nconst req = $('Staff message').item.json;\nif (!me || me.role === 'GUEST') {\n  return [{ json: { allowed: false } }];\n}\nreturn [{ json: {\n  allowed: true,\n  userId: me._id,\n  name: me.displayName,\n  role: me.role,\n  jobTitle: me.jobTitle || '',\n  branchId: (me.branchIds || [])[0],\n  today: new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' }),\n  auth: req.headers.authorization,\n  sessionId: req.body.sessionId || me._id,\n  chatInput: String(req.body.message || req.body.chatInput || ''),\n  page: (req.body.context && req.body.context.page) || 'other',\n  roomNumber: (req.body.context && req.body.context.roomNumber) || '',\n  pageDate: (req.body.context && req.body.context.date) || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' }),\n  pageBrief: (() => {\n    const c = req.body.context || {};\n    const room = c.roomNumber ? ` They have room ${c.roomNumber} open: assume questions are about room ${c.roomNumber} unless they say otherwise, and use rooms_now to see it.` : '';\n    const briefs = {\n      rooms: 'They are on the ROOMS page (board, floor map, timeline). Go deep on rooms: use rooms_now for every room's cleaning state, who is in it tonight, who arrives and their ready-by time, departures, the room's job and owner, and each stay's bill. Compare against ready-by times; call out rooms that will be late.' + room,\n      guests: 'They are on the GUESTS page. Go deep on guests: use guests_now for who is in house, arriving, departing and due in the next 7 days, their bookings, services and balances.',\n      services: 'They are on the SERVICES page. Go deep on transfers, tours and spa: use services_now for each slot's capacity, bookings, revenue against cost and who is booked.',\n      dispatch: 'They are on the DISPATCH page. Go deep on today's jobs: use todays_jobs for rooms, pickups and tours with owners, steps and deadlines.',\n      property: 'They are on the PROPERTY page (rooms and services catalogue). Use rooms_now and services_now for facts.',\n    };\n    return briefs[c.page] || 'Answer about whatever they ask; todays_jobs is the best place to start.';\n  })(),\n} }];"
+        "jsCode": "// The gate: only a signed-in Yoonie staff member gets this far, and every tool runs as them\nconst me = $json.data;\nconst req = $('Staff message').item.json;\nif (!me || me.role === 'GUEST') {\n  return [{ json: { allowed: false } }];\n}\nreturn [{ json: {\n  allowed: true,\n  userId: me._id,\n  name: me.displayName,\n  role: me.role,\n  jobTitle: me.jobTitle || '',\n  branchId: (me.branchIds || [])[0],\n  today: new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' }),\n  auth: req.headers.authorization,\n  sessionId: req.body.sessionId || me._id,\n  chatInput: String(req.body.message || req.body.chatInput || ''),\n  page: (req.body.context && req.body.context.page) || 'other',\n  roomNumber: (req.body.context && req.body.context.roomNumber) || '',\n  pageDate: (req.body.context && req.body.context.date) || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' }),\n  pageBrief: (() => {\n    const c = req.body.context || {};\n    const room = c.roomNumber ? ` They have room ${c.roomNumber} open: assume questions are about room ${c.roomNumber} unless they say otherwise, and use rooms_now to see it.` : '';\n    const briefs = {\n      rooms: 'They are on the ROOMS page (board, floor map, timeline). Go deep on rooms: use rooms_now for every room's cleaning state, who is in it tonight, who arrives and their ready-by time, departures, the room's job and owner, and each stay's bill. Compare against ready-by times; call out rooms that will be late.' + room,\n      guests: 'They are on the GUESTS page. Go deep on guests: use guests_now for who is in house, arriving, departing and due in the next 7 days, their bookings, services and balances.',\n      services: 'They are on the SERVICES page. Go deep on transfers, tours and spa: use services_now for each slot's capacity, bookings, revenue against cost and who is booked.',\n      dispatch: 'They are on the DISPATCH page. Go deep on today's jobs: use todays_jobs for rooms, pickups and tours with owners, steps and deadlines.',\n      insights: 'They want executive owner insights: use owner_insights for sales, direct vs OTA commission savings, marketing channel attribution, transfer spikes and driver staffing.',\n      property: 'They are on the PROPERTY page (rooms and services catalogue). Use rooms_now and services_now for facts.',\n    };\n    return briefs[c.page] || 'Answer about whatever they ask; todays_jobs is the best place to start.';\n  })(),\n} }];"
       },
       "id": "e16ed31b-8eff-4900-9675-54c7950a2854",
       "name": "Context",
@@ -118,7 +118,7 @@
         "promptType": "define",
         "text": "={{ $json.chatInput }}",
         "options": {
-          "systemMessage": "=You are Yoonie Ops, the assistant for hotel staff. You are talking to {{ $('Context').item.json.name }} ({{ $('Context').item.json.role }}{{ $('Context').item.json.jobTitle ? ', ' + $('Context').item.json.jobTitle : '' }}). Today is {{ $('Context').item.json.today }} (Bangkok).\n\nWHERE THEY ARE: {{ $('Context').item.json.pageBrief }} The page shows {{ $('Context').item.json.pageDate }}.\n\nEverything you do runs as this person, through the same rules as the Yoonie app. If a tool says they aren't allowed, tell them plainly; don't try another way.\n\nTools:\n- rooms_now: every room right now: cleaning state, occupancy, current / next / departing stay, arrival ready-by, the room's job and owner, bills.\n- guests_now: guests in house, arriving, departing and in the next 7 days, with services and balances.\n- services_now: each transfer / tour / spa slot: capacity, booked, revenue vs cost, who is booked.\n- todays_jobs: every job today (rooms, pickups, tours) with owner, status, deadline, ids. Use it first to find a room's roomId or a task's id.\n- move_room: change a room's cleaning state with its roomId. toStatus is IN_PROGRESS (start), CLEAN (done), INSPECTED (passed), or DIRTY (needs cleaning / failed inspection, reason required).\n- pickup_step: record a pickup step a driver phoned in: CONFIRMED, EN_ROUTE, AT_AIRPORT, GUEST_ON_BOARD, DROPPED_OFF.\n- answer_pickup_problem: answer a driver's problem: KEEP_WAITING (with instructions) or NO_SHOW.\n- tour_decision: KEEP, MERGE or CANCEL a low-fill tour departure (cancel needs a manager), with a note.\n- staff_list and assign_task: give a job to someone, or back to the open pool.\n\nSAFETY, most important: only change something (move_room, pickup_step, answer_pickup_problem, tour_decision, assign_task) when the message clearly asks for that specific change AND names what it applies to (e.g. \"room 202 passed inspection\", \"give room 205 to Dao\"). Never act on vague, one-word, partial or unclear messages (\"dis\", \"rooms?\", \"late\") — answer with information, or ask what they want. Never change more than one room or job from a single message unless they list them; if they ask for a bulk change, list what you'd change and ask \"Shall I go ahead?\" first. Questions are never instructions: \"which rooms are dirty?\" means look, not change.\n\nRules: confirm what you changed and who was notified (from the tool's \"notified\" list). Before CANCEL or NO_SHOW, repeat what will happen and ask \"Shall I go ahead?\"; only act after a clear yes. Keep answers short; use room numbers and times, not ids."
+          "systemMessage": "=You are Yoonie Ops, the assistant for hotel staff. You are talking to {{ $('Context').item.json.name }} ({{ $('Context').item.json.role }}{{ $('Context').item.json.jobTitle ? ', ' + $('Context').item.json.jobTitle : '' }}). Today is {{ $('Context').item.json.today }} (Bangkok).\n\nWHERE THEY ARE: {{ $('Context').item.json.pageBrief }} The page shows {{ $('Context').item.json.pageDate }}.\n\nEverything you do runs as this person, through the same rules as the Yoonie app. If a tool says they aren't allowed, tell them plainly; don't try another way.\n\nTools:\n- rooms_now: every room right now: cleaning state, occupancy, current / next / departing stay, arrival ready-by, the room's job and owner, bills.\n- guests_now: guests in house, arriving, departing and in the next 7 days, with services and balances.\n- services_now: each transfer / tour / spa slot: capacity, booked, revenue vs cost, who is booked.\n- todays_jobs: every job today (rooms, pickups, tours) with owner, status, deadline, ids. Use it first to find a room's roomId or a task's id.\n- move_room: change a room's cleaning state with its roomId. toStatus is IN_PROGRESS (start), CLEAN (done), INSPECTED (passed), or DIRTY (needs cleaning / failed inspection, reason required).\n- pickup_step: record a pickup step a driver phoned in: CONFIRMED, EN_ROUTE, AT_AIRPORT, GUEST_ON_BOARD, DROPPED_OFF.\n- answer_pickup_problem: answer a driver's problem: KEEP_WAITING (with instructions) or NO_SHOW.\n- tour_decision: KEEP, MERGE or CANCEL a low-fill tour departure (cancel needs a manager), with a note.\n- staff_list and assign_task: give a job to someone, or back to the open pool.\n- owner_insights: owner executive intelligence on sales, direct bookings vs OTA revenue, money saved skipping Agoda/Booking.com commissions, transfer volume spikes by day of the week (e.g. Thursday extra driver), room turnaround times, and marketing channels.\n\nSAFETY, most important: only change something (move_room, pickup_step, answer_pickup_problem, tour_decision, assign_task) when the message clearly asks for that specific change AND names what it applies to (e.g. \"room 202 passed inspection\", \"give room 205 to Dao\"). Never act on vague, one-word, partial or unclear messages (\"dis\", \"rooms?\", \"late\") — answer with information, or ask what they want. Never change more than one room or job from a single message unless they list them; if they ask for a bulk change, list what you'd change and ask \"Shall I go ahead?\" first. Questions are never instructions: \"which rooms are dirty?\" means look, not change.\n\nRules: confirm what you changed and who was notified (from the tool's \"notified\" list). Before CANCEL or NO_SHOW, repeat what will happen and ask \"Shall I go ahead?\"; only act after a clear yes. Keep answers short; use room numbers and times, not ids."
         }
       },
       "id": "c053ecf5-f2ea-45c2-8c68-4806f190f3bd",
@@ -658,6 +658,43 @@
         1860,
         260
       ]
+    },
+    {
+      "parameters": {
+        "toolDescription": "Owner financial and operational insights: direct vs OTA revenue, money saved skipping Booking.com/Agoda commission (18%), marketing channel breakdown (Instagram, Google, LINE, TikTok), transfer demand spikes by day of week (e.g. Thursday driver staffing), and turnaround KPIs.",
+        "method": "GET",
+        "url": "={{ $('Config').item.json.api }}/ops-board/insights",
+        "sendQuery": true,
+        "specifyQuery": "keypair",
+        "parametersQuery": {
+          "values": [
+            {
+              "name": "branchId",
+              "valueProvider": "fieldValue",
+              "value": "={{ $('Context').item.json.branchId }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "specifyHeaders": "keypair",
+        "parametersHeaders": {
+          "values": [
+            {
+              "name": "Authorization",
+              "valueProvider": "fieldValue",
+              "value": "={{ $('Context').item.json.auth }}"
+            }
+          ]
+        }
+      },
+      "id": "e88f2a11-b4c6-43dd-92bb-7814b7aa8201",
+      "name": "owner_insights",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        2020,
+        260
+      ]
     }
   ],
   "connections": {
@@ -863,6 +900,17 @@
       ]
     },
     "assign_task": {
+      "ai_tool": [
+        [
+          {
+            "node": "Staff assistant",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "owner_insights": {
       "ai_tool": [
         [
           {
