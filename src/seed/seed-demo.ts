@@ -373,8 +373,8 @@ async function main() {
   for (const ch of channels) {
     for (let i = 0; i < ch.weight; i++) {
       const orderDate = new Date();
-      // Distribute over past 30 days
-      orderDate.setDate(orderDate.getDate() - (i % 28));
+      // Distribute over past 30 days (strictly yesterday and earlier so they don't contaminate today's arrivals)
+      orderDate.setDate(orderDate.getDate() - (1 + (i % 28)));
 
       const price = ch.avgPrice + ((i % 5) * 200 - 400);
       const guestEmail = `guest${orderNumSeq}@example.com`;
