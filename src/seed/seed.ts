@@ -1212,7 +1212,9 @@ async function main() {
   ];
 
   /* ---- A. Historical October Stays (Oct 1 to Oct 30) across all 40 rooms */
-  console.log("Generating full month historical simulation for October 2026...");
+  console.log(
+    "Generating full month historical simulation for October 2026...",
+  );
   let orderSeq = 0;
   const allRoomNumbers = Object.keys(rooms);
 
@@ -1226,7 +1228,15 @@ async function main() {
     const offset = rIdx % 3;
     let currDay = 1 + offset;
 
-    const demoRooms = new Set(["305", "105", "PV2", "PV1", "108", "205", "201"]);
+    const demoRooms = new Set([
+      "305",
+      "105",
+      "PV2",
+      "PV1",
+      "108",
+      "205",
+      "201",
+    ]);
     while (currDay <= 31) {
       const stayNights = currDay % 2 === 0 ? 3 : 2;
       const checkInDay = currDay;
@@ -1245,7 +1255,9 @@ async function main() {
           : `2026-11-${String(checkOutDay - 31).padStart(2, "0")}`;
 
       const isCompleted = checkOutDay <= 27; // Checked out before today
-      const status = isCompleted ? OrderStatus.COMPLETED : OrderStatus.CONFIRMED;
+      const status = isCompleted
+        ? OrderStatus.COMPLETED
+        : OrderStatus.CONFIRMED;
       const lineStatus = isCompleted
         ? LineStatus.COMPLETED
         : LineStatus.CONFIRMED;
@@ -1338,7 +1350,9 @@ async function main() {
   }
 
   /* ---- B. Key Conversational AI Demo Orders for November 1 (Demo Day) */
-  console.log("Configuring verified Demo Day (Nov 1) Conversational AI orders...");
+  console.log(
+    "Configuring verified Demo Day (Nov 1) Conversational AI orders...",
+  );
 
   // 1. Hiroshi Tanaka (Room 305, EK 372 pickup, Sunset Cruise)
   orderSpecs.push({
@@ -1635,8 +1649,12 @@ async function main() {
           holdId = hold._id;
         }
 
-        const dateStr = (spec.items[0]?.businessDate ?? "2026-10-15").replace(/-/g, "").slice(2);
-        const orderNumber = spec.orderNumber ?? `TS-${dateStr}-${String(globalOrderIdx++).padStart(4, "0")}X`;
+        const dateStr = (spec.items[0]?.businessDate ?? "2026-10-15")
+          .replace(/-/g, "")
+          .slice(2);
+        const orderNumber =
+          spec.orderNumber ??
+          `TS-${dateStr}-${String(globalOrderIdx++).padStart(4, "0")}X`;
 
         const orderDoc = (await M.order.create({
           orderNumber,
@@ -1702,7 +1720,9 @@ async function main() {
   }
 
   /* ---- 12. Room Cleaning Status for Demo Day & Current Date */
-  console.log("Setting clean, inspected baseline with live operational turnover states...");
+  console.log(
+    "Setting clean, inspected baseline with live operational turnover states...",
+  );
   // Default: All rooms are fully cleaned & inspected
   for (const r of Object.values(rooms)) {
     r.cleaningStatus = CleaningStatus.INSPECTED;
@@ -1987,7 +2007,11 @@ async function main() {
   console.table(counts);
 
   const demoBoard = await M.dispatch
-    .find({ branchId: BRANCH, serviceDate: DEMO_DATE, status: DispatchStatus.OPEN })
+    .find({
+      branchId: BRANCH,
+      serviceDate: DEMO_DATE,
+      status: DispatchStatus.OPEN,
+    })
     .sort({ priorityScore: -1 })
     .select("type priorityScore severity title")
     .lean();
@@ -2031,7 +2055,9 @@ async function main() {
   );
 
   const totalRev = roll.reduce((sum, r) => sum + r.revenueThb, 0);
-  console.log(`\nTotal October Simulated Revenue: ฿${totalRev.toLocaleString()} THB`);
+  console.log(
+    `\nTotal October Simulated Revenue: ฿${totalRev.toLocaleString()} THB`,
+  );
 
   await mongoose.disconnect();
   console.log("Seed completed successfully.");

@@ -8,10 +8,14 @@ import {
 } from "../inventory/entity/inventory-slot.entity";
 import { User, UserSchema } from "../user/entity/user.entity";
 import { Branch, BranchSchema } from "../branch/entity/branch.entity";
+import {
+  OperationalDispatch,
+  OperationalDispatchSchema,
+} from "../dispatch/entity/operational-dispatch.entity";
 import { OpsBoardController } from "./ops-board.controller";
 import { OpsBoardService } from "./ops-board.service";
 
-/** Read-only operational views (services, guests) composed from orders, inventory and profiles. */
+/** Read-only operational views (services, guests, insights) composed from orders, inventory and profiles. */
 @Module({
   imports: [
     MongooseModule.forFeature([
@@ -20,6 +24,7 @@ import { OpsBoardService } from "./ops-board.service";
       { name: InventorySlot.name, schema: InventorySlotSchema },
       { name: User.name, schema: UserSchema },
       { name: Branch.name, schema: BranchSchema },
+      { name: OperationalDispatch.name, schema: OperationalDispatchSchema },
     ]),
   ],
   controllers: [OpsBoardController],

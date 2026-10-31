@@ -19,7 +19,8 @@ export class OnboardBranchDto {
 
   @ApiProperty({
     example: "lynn-stays",
-    description: "Subdomain slug and branch code (3-32 alphanumeric/hyphen characters)",
+    description:
+      "Subdomain slug and branch code (3-32 alphanumeric/hyphen characters)",
   })
   @IsString()
   @IsNotEmpty()
@@ -65,7 +66,8 @@ export class OnboardBranchDto {
   contactEmail?: string;
 
   @ApiPropertyOptional({
-    example: "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=200",
+    example:
+      "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=200",
   })
   @IsString()
   @IsOptional()

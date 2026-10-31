@@ -60,4 +60,27 @@ export class OpsBoardController {
   ) {
     return this.opsBoard.guestsBoard(scopedBranch(user, branchId), date);
   }
+
+  @Roles(
+    UserRole.ADMIN,
+    UserRole.BRANCH_MGR,
+    UserRole.DISPATCHER,
+    UserRole.STAFF,
+  )
+  @Get("insights")
+  @ApiOperation({
+    summary:
+      "Owner financial and operational insights: OTA commission savings, revenue attribution, transfer spike patterns, turnaround KPIs",
+  })
+  @ApiQuery({ name: "branchId", required: false })
+  @ApiQuery({ name: "from", required: false, example: "2026-10-01" })
+  @ApiQuery({ name: "to", required: false, example: "2026-10-31" })
+  insights(
+    @CurrentUser() user: ICurrentUser,
+    @Query("branchId") branchId?: string,
+    @Query("from") from?: string,
+    @Query("to") to?: string,
+  ) {
+    return this.opsBoard.ownerInsights(scopedBranch(user, branchId), from, to);
+  }
 }
