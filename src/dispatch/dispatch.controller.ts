@@ -39,7 +39,12 @@ import { IdempotencyInterceptor } from "../staff/interceptors/idempotency.interc
 export class DispatchController {
   constructor(private readonly dispatchService: DispatchService) {}
 
-  @Roles(UserRole.ADMIN, UserRole.BRANCH_MGR, UserRole.DISPATCHER)
+  @Roles(
+    UserRole.ADMIN,
+    UserRole.BRANCH_MGR,
+    UserRole.DISPATCHER,
+    UserRole.STAFF,
+  )
   @Get()
   @ApiOperation({
     summary: "Get daily operational dispatch run-sheet (branch-scoped)",

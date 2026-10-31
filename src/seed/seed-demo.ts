@@ -37,6 +37,9 @@ import {
   Severity,
   MessageChannel,
 } from "../common/enums/dispatch.enum";
+import { NotificationType } from "../notifications/enums/notification-type.enum";
+import { NotificationSeverity } from "../notifications/enums/notification-severity.enum";
+import { NotificationStatus } from "../notifications/enums/notification-status.enum";
 import {
   toBusinessDate,
   addDays,
@@ -160,8 +163,9 @@ async function main() {
     { name: "Prasit Somboon", email: "prasit@riverside-bkk.example", role: UserRole.STAFF, jobTitle: "Driver" },
   ];
 
+  const staffMap: Record<string, any> = {};
   for (const s of staffMembers) {
-    await M.user.findOneAndUpdate(
+    const userDoc = await M.user.findOneAndUpdate(
       { email: s.email },
       {
         displayName: s.name,
@@ -183,6 +187,7 @@ async function main() {
       },
       { upsert: true, new: true }
     );
+    staffMap[s.email] = userDoc;
   }
 
   // Ensure target demo account has access and correct password
@@ -228,32 +233,47 @@ async function main() {
   }
 
   // 4. SEED ROOMS (40 physical units across 3 types)
-  console.log(`🛏️  Seeding 40 physical rooms...`);
-  const roomTypes = [
-    { type: RoomTypeCode.STANDARD_KING, count: 20, rate: 2200, floor: 1 },
-    { type: RoomTypeCode.DELUXE_BALCONY, count: 14, rate: 3400, floor: 2 },
-    { type: RoomTypeCode.POOL_VILLA, count: 6, rate: 5800, floor: 3 },
-  ];
+  console.log(`🛏️  Seeding 40 physical rooms (37 inspected green, 3 coming up next)...`);
+  const roomDefs: Array<{ number: string; floor: number; type: RoomTypeCode; rate: number }> = [];
+  // Floor 1: Standard King (20 rooms: 101-120)
+  for (let i = 1; i <= 20; i++) {
+    roomDefs.push({ number: String(100 + i), floor: 1, type: RoomTypeCode.STANDARD_KING, rate: 2200 });
+  }
+  // Floor 2: Deluxe Balcony (14 rooms: 201-214)
+  for (let i = 1; i <= 14; i++) {
+    roomDefs.push({ number: String(200 + i), floor: 2, type: RoomTypeCode.DELUXE_BALCONY, rate: 3400 });
+  }
+  // Floor 3: Pool Villas (6 units: 301-306)
+  for (let i = 1; i <= 6; i++) {
+    roomDefs.push({ number: String(300 + i), floor: 3, type: RoomTypeCode.POOL_VILLA, rate: 5800 });
+  }
 
   const createdRooms: any[] = [];
-  let roomIdx = 101;
-  for (const rt of roomTypes) {
-    for (let i = 0; i < rt.count; i++) {
-      const roomNum = String(roomIdx++);
-      const room = await M.room.create({
-        branchId: DEMO_BRANCH_ID,
-        roomNumber: roomNum,
-        floor: rt.floor,
-        roomType: rt.type,
-        maxOccupancy: 2,
-        baseRateThb: rt.rate,
-        cleaningStatus: i < 3 ? CleaningStatus.DIRTY : CleaningStatus.INSPECTED,
-        cleaningUpdatedAt: new Date(),
-        amenities: ["KING_BED", "WIFI", "AIR_CON"],
-        isActive: true,
-      });
-      createdRooms.push(room);
-    }
+  const roomMap = new Map<string, any>();
+  for (const def of roomDefs) {
+    // Current time ~21:26 Bangkok:
+    // 37 rooms are INSPECTED (green and ready!)
+    // Room 204: IN_PROGRESS (Noi is finishing it up right now for 21:45 VIP arrival)
+    // Room 108: DIRTY (Marcus Lindqvist arrival at 22:15)
+    // Room 302: DIRTY (Night check-in at 23:00)
+    let status = CleaningStatus.INSPECTED;
+    if (def.number === "204") status = CleaningStatus.IN_PROGRESS;
+    else if (def.number === "108" || def.number === "302") status = CleaningStatus.DIRTY;
+
+    const room = await M.room.create({
+      branchId: DEMO_BRANCH_ID,
+      roomNumber: def.number,
+      floor: def.floor,
+      roomType: def.type,
+      maxOccupancy: def.type === RoomTypeCode.POOL_VILLA ? 4 : 2,
+      baseRateThb: def.rate,
+      cleaningStatus: status,
+      cleaningUpdatedAt: new Date(),
+      amenities: ["KING_BED", "WIFI", "AIR_CON"],
+      isActive: true,
+    });
+    createdRooms.push(room);
+    roomMap.set(def.number, room);
   }
 
   // 5. SEED SERVICES & EXPERIENCES
@@ -469,29 +489,241 @@ async function main() {
     }
   }
 
-  // Live housekeeping jobs for TODAY
-  console.log(`🧹 Creating live housekeeping board for TODAY...`);
-  for (let i = 0; i < 5; i++) {
-    const room = createdRooms[i];
+  // 7b. LIVE DISPATCH BOARD FOR TODAY (Baseline: ~21:26 Bangkok Time)
+  console.log(`🧹 Creating live dispatch runway for TODAY (${todayStr})...`);
+  const noiUser = staffMap["noi@riverside-bkk.example"];
+  const prasitUser = staffMap["prasit@riverside-bkk.example"];
+
+  // 1. Rooms completed & inspected earlier today (morning through 20:30)
+  const doneRoomNumbers = ["101", "102", "103", "104", "105", "106", "107", "201", "202", "203", "301", "303", "304", "305", "306"];
+  for (let i = 0; i < doneRoomNumbers.length; i++) {
+    const rNum = doneRoomNumbers[i];
+    const rDoc = roomMap.get(rNum);
+    if (!rDoc) continue;
+    const hoursAgo = 1 + (i % 9);
+    await M.dispatch.create({
+      branchId: DEMO_BRANCH_ID,
+      type: DispatchType.HOUSEKEEPING_TURNAROUND,
+      status: DispatchStatus.DONE,
+      serviceDate: todayStr,
+      severity: Severity.INFO,
+      title: `Turn room ${rNum} before ${14 + (i % 6)}:00`,
+      dedupeKey: `hk:done:${todayStr}:${rNum}`,
+      priorityScore: 500 - i * 10,
+      dueAt: new Date(Date.now() - hoursAgo * 3600 * 1000),
+      completedAt: new Date(Date.now() - hoursAgo * 3600 * 1000),
+      assigneeUserId: noiUser?._id,
+      housekeeping: {
+        roomId: rDoc._id,
+        roomNumber: rNum,
+        isVip: i % 3 === 0,
+        etaAt: new Date(Date.now() - (hoursAgo + 1) * 3600 * 1000),
+        etaSource: "CHECKIN_TIME",
+        targetReadyBy: new Date(Date.now() - hoursAgo * 3600 * 1000),
+      },
+    });
+  }
+
+  // 2. Pickups completed earlier today
+  const donePickups = [
+    { flight: "TG640", guest: "David Kim", hoursAgo: 7 },
+    { flight: "SQ708", guest: "Stephanie Wong", hoursAgo: 5 },
+    { flight: "CX751", guest: "Mei-Ling Zhou", hoursAgo: 3 },
+    { flight: "EK384", guest: "Fatima Al-Mansoor", hoursAgo: 2 },
+  ];
+  for (const p of donePickups) {
+    await M.dispatch.create({
+      branchId: DEMO_BRANCH_ID,
+      type: DispatchType.AIRPORT_PICKUP,
+      status: DispatchStatus.DONE,
+      serviceDate: todayStr,
+      severity: Severity.INFO,
+      title: `Airport Pickup: ${p.flight} for ${p.guest}`,
+      dedupeKey: `pickup:done:${todayStr}:${p.flight}`,
+      priorityScore: 600,
+      dueAt: new Date(Date.now() - p.hoursAgo * 3600 * 1000),
+      completedAt: new Date(Date.now() - (p.hoursAgo - 0.5) * 3600 * 1000),
+      assigneeUserId: prasitUser?._id,
+      pickup: {
+        orderId: new Types.ObjectId(),
+        lineId: `line-${p.flight}`,
+        flightNumber: p.flight,
+        guestName: p.guest,
+        etaAt: new Date(Date.now() - p.hoursAgo * 3600 * 1000),
+        channel: MessageChannel.LINE,
+        deliveryStatus: "SENT",
+        card: {
+          en: `Welcome to Bangkok, ${p.guest}`,
+          th: `ยินดีต้อนรับสู่กรุงเทพฯ คุณ ${p.guest}`,
+        },
+      },
+    });
+  }
+
+  // 3. COMING UP NEXT (around 21:26 Bangkok Time):
+  // Task A: Room 204 - VIP Eleanor Whitfield (landing 21:45, ready-by 21:50)
+  const room204 = roomMap.get("204");
+  if (room204) {
     await M.dispatch.create({
       branchId: DEMO_BRANCH_ID,
       type: DispatchType.HOUSEKEEPING_TURNAROUND,
       status: DispatchStatus.OPEN,
       serviceDate: todayStr,
-      severity: i === 0 ? Severity.CRITICAL : Severity.WARN,
-      title: `Clean Room ${room.roomNumber} before arrival`,
-      dedupeKey: `hk:demo:${todayStr}:${room.roomNumber}`,
-      priorityScore: 120 - i * 10,
-      dueAt: new Date(Date.now() + (i + 1) * 3600 * 1000),
+      severity: Severity.CRITICAL,
+      priorityScore: 990,
+      title: `Turn room 204 before 21:50 (VIP Eleanor Whitfield)`,
+      dedupeKey: `hk:open:${todayStr}:204`,
+      dueAt: new Date(Date.now() + 24 * 60 * 1000),
+      assigneeUserId: noiUser?._id,
       housekeeping: {
-        roomId: room._id,
-        roomNumber: room.roomNumber,
-        isVip: i === 0,
-        etaAt: new Date(Date.now() + (i + 1) * 3600 * 1000),
-        etaSource: "CHECKIN_TIME",
-        targetReadyBy: new Date(Date.now() + (i + 2) * 3600 * 1000),
+        roomId: room204._id,
+        roomNumber: "204",
+        isVip: true,
+        etaAt: new Date(Date.now() + 19 * 60 * 1000),
+        etaSource: "TRANSFER_FLIGHT",
+        flightNumber: "TG917",
+        targetReadyBy: new Date(Date.now() + 24 * 60 * 1000),
       },
     });
+  }
+
+  // Task B: Room 108 - Marcus Lindqvist (late check-in 22:15, ready-by 22:20)
+  const room108 = roomMap.get("108");
+  if (room108) {
+    await M.dispatch.create({
+      branchId: DEMO_BRANCH_ID,
+      type: DispatchType.HOUSEKEEPING_TURNAROUND,
+      status: DispatchStatus.OPEN,
+      serviceDate: todayStr,
+      severity: Severity.WARN,
+      priorityScore: 850,
+      title: `Turn room 108 before 22:20 (Marcus Lindqvist)`,
+      dedupeKey: `hk:open:${todayStr}:108`,
+      dueAt: new Date(Date.now() + 54 * 60 * 1000),
+      assigneeUserId: noiUser?._id,
+      housekeeping: {
+        roomId: room108._id,
+        roomNumber: "108",
+        isVip: false,
+        etaAt: new Date(Date.now() + 49 * 60 * 1000),
+        etaSource: "CHECKIN_TIME",
+        targetReadyBy: new Date(Date.now() + 54 * 60 * 1000),
+      },
+    });
+  }
+
+  // Task C: Room 302 - Night Arrival (arrival 23:00, ready-by 23:00)
+  const room302 = roomMap.get("302");
+  if (room302) {
+    await M.dispatch.create({
+      branchId: DEMO_BRANCH_ID,
+      type: DispatchType.HOUSEKEEPING_TURNAROUND,
+      status: DispatchStatus.OPEN,
+      serviceDate: todayStr,
+      severity: Severity.INFO,
+      priorityScore: 680,
+      title: `Turn room 302 before 23:00 (Night Arrival)`,
+      dedupeKey: `hk:open:${todayStr}:302`,
+      dueAt: new Date(Date.now() + 94 * 60 * 1000),
+      assigneeUserId: noiUser?._id,
+      housekeeping: {
+        roomId: room302._id,
+        roomNumber: "302",
+        isVip: false,
+        etaAt: new Date(Date.now() + 94 * 60 * 1000),
+        etaSource: "CHECKIN_TIME",
+        targetReadyBy: new Date(Date.now() + 94 * 60 * 1000),
+      },
+    });
+  }
+
+  // Task D: Airport Pickup for VIP Eleanor Whitfield (TG917 arriving at 21:45)
+  await M.dispatch.create({
+    branchId: DEMO_BRANCH_ID,
+    type: DispatchType.AIRPORT_PICKUP,
+    status: DispatchStatus.OPEN,
+    serviceDate: todayStr,
+    severity: Severity.CRITICAL,
+    priorityScore: 995,
+    title: `Airport Pickup: TG917 21:45 (Eleanor Whitfield)`,
+    dedupeKey: `pickup:open:${todayStr}:TG917`,
+    dueAt: new Date(Date.now() + 19 * 60 * 1000),
+    assigneeUserId: prasitUser?._id,
+    pickup: {
+      orderId: new Types.ObjectId(),
+      lineId: "line-tg917",
+      flightNumber: "TG917",
+      guestName: "Eleanor Whitfield",
+      etaAt: new Date(Date.now() + 19 * 60 * 1000),
+      meetingDoor: 3,
+      vehiclePlate: "1กก 1234",
+      driverUserId: prasitUser?._id,
+      channel: MessageChannel.LINE,
+      deliveryStatus: "SENT",
+      card: {
+        en: "Welcome to Bangkok, Ms. Eleanor Whitfield",
+        th: "ยินดีต้อนรับสู่กรุงเทพฯ คุณเอเลนอร์ วิทฟิลด์",
+      },
+    },
+  });
+
+  // 8. SEED HOUSEKEEPER NOI'S MOBILE INBOX NOTIFICATIONS
+  console.log(`📬 Seeding mobile inbox notifications for Lead Housekeeper Noi...`);
+  if (noiUser) {
+    const notifications = [
+      {
+        userId: noiUser._id,
+        branchId: DEMO_BRANCH_ID,
+        type: NotificationType.CRITICAL_ALERT,
+        severity: NotificationSeverity.CRITICAL,
+        title: "🚨 Urgent: Room 204 VIP Arrival at 21:45",
+        body: "Eleanor Whitfield (VIP Score 95) landed on TG917. Target ready-by time is 21:50. Driver Prasit is en route.",
+        status: NotificationStatus.PENDING,
+        readAt: null,
+        channels: ["inbox", "push"],
+        createdAt: new Date(Date.now() - 5 * 60 * 1000),
+      },
+      {
+        userId: noiUser._id,
+        branchId: DEMO_BRANCH_ID,
+        type: NotificationType.TASK_ASSIGNED,
+        severity: NotificationSeverity.WARN,
+        title: "⏰ Turnaround Assigned: Room 108",
+        body: "Marcus Lindqvist late check-in scheduled for 22:15. Target ready-by: 22:20.",
+        status: NotificationStatus.PENDING,
+        readAt: null,
+        channels: ["inbox", "push"],
+        createdAt: new Date(Date.now() - 15 * 60 * 1000),
+      },
+      {
+        userId: noiUser._id,
+        branchId: DEMO_BRANCH_ID,
+        type: NotificationType.TASK_ASSIGNED,
+        severity: NotificationSeverity.INFO,
+        title: "📋 Night Prep: Room 302",
+        body: "Prepare twin bed setup and complimentary tea for late check-in at 23:00.",
+        status: NotificationStatus.PENDING,
+        readAt: null,
+        channels: ["inbox", "push"],
+        createdAt: new Date(Date.now() - 35 * 60 * 1000),
+      },
+      {
+        userId: noiUser._id,
+        branchId: DEMO_BRANCH_ID,
+        type: NotificationType.GENERAL,
+        severity: NotificationSeverity.INFO,
+        title: "✅ Daily Housekeeping Target Met (37/40)",
+        body: "Great work team! 37 rooms inspected and verified green before 21:00 cutoff.",
+        status: NotificationStatus.SENT,
+        readAt: new Date(Date.now() - 60 * 60 * 1000),
+        channels: ["inbox", "push"],
+        createdAt: new Date(Date.now() - 90 * 60 * 1000),
+      },
+    ];
+
+    for (const n of notifications) {
+      await M.notification.create(n);
+    }
   }
 
   const otaSavings = Math.round(totalRevenue * 0.18);
