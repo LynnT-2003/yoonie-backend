@@ -48,6 +48,8 @@ export class AssistantController {
       dto.sessionId,
       dto.message,
       dto.context,
+      dto.voice,
+      dto.audio,
     );
   }
 }

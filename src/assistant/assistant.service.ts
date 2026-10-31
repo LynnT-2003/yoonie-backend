@@ -69,10 +69,18 @@ export class AssistantService {
     sessionId: string,
     message: string,
     context?: AssistantContextDto,
+    voice?: boolean,
+    audio?: string,
   ) {
     const { status, data } = await this.post(
       this.url("N8N_STAFF_WEBHOOK_URL"),
-      { message, sessionId, context: context ?? { page: "other" } },
+      {
+        message,
+        sessionId,
+        voice: Boolean(voice),
+        audio: audio || undefined,
+        context: context ?? { page: "other" },
+      },
       { authorization },
     );
     if (status === 401) {
@@ -82,6 +90,9 @@ export class AssistantService {
       this.logger.warn(`staff assistant answered ${status}`);
       throw new BadGatewayException("Yoonie is unavailable right now");
     }
-    return { reply: data.reply };
+    return {
+      reply: data.reply,
+      audio: typeof data.audio === "string" ? data.audio : undefined,
+    };
   }
 }

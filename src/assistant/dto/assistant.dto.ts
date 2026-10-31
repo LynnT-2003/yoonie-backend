@@ -58,6 +58,15 @@ export class AssistantMessageDto {
   @Length(1, 1000)
   message!: string;
 
+  @ApiPropertyOptional({ example: true, description: "Whether to generate speech TTS" })
+  @IsOptional()
+  voice?: boolean;
+
+  @ApiPropertyOptional({ description: "Base64 audio recording for STT" })
+  @IsOptional()
+  @IsString()
+  audio?: string;
+
   @ApiPropertyOptional({ type: AssistantContextDto })
   @IsOptional()
   @ValidateNested()
