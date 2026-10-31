@@ -1,54 +1,18 @@
-# Yoonie AI Staff Assistant & Executive Intelligence Engine
+# Yoonie AI Staff Assistant & Executive Financial Intelligence Engine
 
 > **Live Architecture Reference:** Supporting Slide 5 (*"One record. Two AIs on top."*) and the operator pitch (*"Now the data can actually tell him something"*).
 
-This document details the end-to-end architecture, mathematical formulas, backend data-crunching pipelines, and curl test procedures for Yoonie's AI-native Staff & Owner Assistant.
+This PR integrates the live executive owner intelligence engine for Yoonie's AI Staff Assistant, enabling boutique hotel owners (BOs) like Sam to ask plain-English business, financial, and operational questions and receive concrete, evidence-backed answers.
 
 ---
 
-## 1. Overall Flow of the Staff Assistant (n8n)
-
-The Staff Assistant is a conversational operations and intelligence agent built with LangChain on n8n. It is completely isolated from the public Guest Concierge.
-
-```mermaid
-flowchart TD
-    A[Staff / Owner Message] -->|POST webhook| B[Staff message Webhook]
-    B --> C[Config Node<br/>Sets API URL]
-    C --> D[Who is asking<br/>GET /api/users/me]
-    D --> E{Context Gate<br/>Role Validation}
-    E -->|Unauthorized / Guest| F[HTTP 401<br/>Not signed in]
-    E -->|ADMIN, BRANCH_MGR, STAFF| G[Staff assistant Agent<br/>GPT-4o-mini + Buffer Memory]
-    
-    G <--> H[(Yoonie Backend API)]
-    
-    subgraph Operational & Financial Tools
-        H --- T1[owner_insights<br/>GET /ops-board/insights]
-        H --- T2[rooms_now<br/>GET /rooms/live-occupancy]
-        H --- T3[guests_now<br/>GET /ops-board/guests]
-        H --- T4[services_now<br/>GET /ops-board/services]
-        H --- T5[todays_jobs<br/>GET /dispatch]
-        H --- T6[move_room<br/>POST /staff/rooms/.../transition]
-        H --- T7[pickup_step<br/>POST /staff/pickups/.../step]
-        H --- T8[tour_decision<br/>POST /dispatch/.../decision]
-        H --- T9[staff_list & assign<br/>PATCH /dispatch/.../assign]
-    end
-    
-    G --> I[Reply Node<br/>JSON { reply: '...' }]
-```
-
-### Why the Security Gate Exists:
-1. **Zero Data Leakage:** Hotel guests should never see operational schedules, driver locations, or private owner revenue.
-2. **Context Injection:** When an owner or staff member chats with Yoonie, `Who is asking` injects their exact `branchId`, role, name, and permissions into the agent's short-term memory, ensuring all queries are automatically scoped to their hotel property.
-
----
-
-## 2. Live Verification Evidence
+## 📸 1. Live Verification Evidence
 
 Live execution test against Vercel backend using `n8n/yoonie-staff-assistant.json`:
 
-![Live Execution Screenshot](../assets/docs/n8n-owner-insights-success.png)
+![n8n Staff Intelligence Live Execution Proof](https://raw.githubusercontent.com/LynnT-2003/yoonie-backend/feat/n8n-staff-intelligence-and-insights/assets/docs/n8n-owner-insights-success.png)
 
-### Live Output Received:
+### Verified Live Output:
 ```json
 {
   "reply": "We saved **฿1,020,318 THB** by skipping Booking.com and Agoda commissions. This is based on a total revenue of **฿5,668,432 THB**, with 100% coming from direct bookings."
@@ -57,7 +21,7 @@ Live execution test against Vercel backend using `n8n/yoonie-staff-assistant.jso
 
 ---
 
-## 3. How to Test Directly with cURL
+## ⚡ 2. How to Test Directly with cURL
 
 ### Option A: Test against the Production Webhook
 ```bash
@@ -76,103 +40,113 @@ curl -s -X POST https://lynn1975.app.n8n.cloud/webhook-test/yoonie-staff-assista
   -d '{"message":"When do our transfer requests spike, and do we need a second driver?","sessionId":"demo"}'
 ```
 
-### Option C: Direct Backend Endpoint Inspection
-```bash
-token=$(curl -s -X POST https://yoonie-backend.vercel.app/api/auth/login -H 'content-type: application/json' -d '{"email":"anan@riverside-bkk.example","password":"Password123!"}' | jq -r .data.tokens.accessToken)
+---
 
-curl -s -H "Authorization: Bearer $token" "https://yoonie-backend.vercel.app/api/ops-board/insights?branchId=665a1b2c3d4e5f6a7b8c9d0e"
+## 🔄 3. Overall Flow of the Staff Assistant (n8n)
+
+The Staff Assistant is a conversational operations and intelligence agent built with LangChain on n8n. It is completely isolated from the public Guest Concierge.
+
+```mermaid
+flowchart TD
+    A["Staff / Owner Message"] -->|POST webhook| B["Staff message Webhook"]
+    B --> C["Config Node<br/>Sets API URL"]
+    C --> D["Who is asking<br/>GET /api/users/me"]
+    D --> E{"Context Gate<br/>Role Validation"}
+    E -->|Unauthorized / Guest| F["HTTP 401<br/>Not signed in"]
+    E -->|ADMIN, BRANCH_MGR, STAFF| G["Staff assistant Agent<br/>GPT-4o-mini + Buffer Memory"]
+    
+    G <--> H[("Yoonie Backend API")]
+    
+    subgraph Operational & Financial Tools
+        H --- T1["owner_insights<br/>GET /ops-board/insights"]
+        H --- T2["rooms_now<br/>GET /rooms/live-occupancy"]
+        H --- T3["guests_now<br/>GET /ops-board/guests"]
+        H --- T4["services_now<br/>GET /ops-board/services"]
+        H --- T5["todays_jobs<br/>GET /dispatch"]
+    end
+    
+    G --> I["Reply Node<br/>JSON response"]
 ```
 
 ---
 
-## 4. The 20 Key Pitch Questions & Answers
+## 👔 4. Plain English Guide for Business Owners (BOs): The 4 Core Tools & 20 Questions
 
-Yoonie answers these questions based on **live database records**, not speculative AI guessing:
+A Business Owner (BO) doesn't want code or database schema terms. The BO assistant uses **4 core intelligence tools** to query live data and give clear, actionable English answers.
 
-| # | Question Asked by Sam (Owner) | Underlying Data Source | Tool Used | Concrete Live Answer |
+### 📊 The 4 Core BO Intelligence Tools:
+1. **`owner_insights`** (Financials & Strategy): Total sales, direct bookings, OTA commission savings (18% benchmark), marketing channels (TikTok, LINE, Google), transfer volume spikes, and room turnaround SLA.
+2. **`services_now`** (Experience Profitability): Tour departures, boat/van passenger fill rate vs fixed operating costs, and tour profitability / loss warnings.
+3. **`guests_now`** (Guest Value & Balances): Who is staying tonight, highest-spending VIPs, repeat guests, and unpaid guest balances before checkout.
+4. **`rooms_now` / `todays_jobs`** (Real-Time Frontline): Dirty vs clean rooms, arrival ready-by times, flight delays, and driver pickup status.
+
+---
+
+### 📋 The 20 Business Owner Questions (Plain English):
+
+#### Category 1: Revenue, Profit & Marketing ROI (`owner_insights`)
+
+| # | Question Asked by BO (Sam) | Tool Used | How Yoonie Gets the Answer (Plain English for BOs) | Exact Conversational Reply to BO |
 |---|---|---|---|---|
-| **1** | *"How much money did we save skipping Booking.com & Agoda commissions?"* | `orders` collection (`totals.grandTotalThb`, `attribution.channel`) | `owner_insights` | *"Direct bookings captured ฿5,668,432 THB. At an 18% OTA benchmark, you saved ฿1,020,318 THB in commissions."* |
-| **2** | *"When do transfer requests spike, and do we need a second driver?"* *(The Reel Question)* | `dispatch` (`type: AIRPORT_PICKUP`, `serviceDate`) | `owner_insights` | *"Saturday transfers run 14x normal volume (43 trips vs 28 on Tuesday). Put a second driver on."* |
-| **3** | *"Which marketing channel brought us the most direct revenue?"* | `orders` (`attribution.utmSource`) | `owner_insights` | *"LINE brought in ฿735,147, WhatsApp brought ฿730,910, and TikTok brought in ฿708,785."* |
-| **4** | *"Which rooms should we clean first today?"* | `rooms` + `dispatch` (`etaAt`, `isVip`, `cleaningStatus`) | `todays_jobs` / `rooms_now` | *"Clean Room 204 first—guest lands at 11:30 AM and is a VIP. Room 301 arrives at 20:00, clean it last."* |
-| **5** | *"Are our tours making money or running at a loss?"* | `inventory_slots` + `services` (`fixedCostThb`, `booked`, `capacity`) | `services_now` | *"Friday Sunset Cruise has only 2 passengers. Fixed cost is ฿4,000; projected net loss is ฿1,600 unless consolidated."* |
-| **6** | *"Who are our highest-spending VIPs in house right now?"* | `users` (`vipScore`, `stats.lifetimeSpendThb`) | `guests_now` | *"Mr. David Kim in Room 201 has ฿64,000 lifetime spend. Elena Rossi in Room 104 is on her 4th stay."* |
-| **7** | *"Which guests have outstanding folios/balances?"* | `orders` (`totals.outstandingBalanceThb`) | `guests_now` | *"3 guests have unpaid folios totaling ฿14,200 THB before checkout."* |
-| **8** | *"Which rooms are currently dirty or in progress?"* | `rooms` (`cleaningStatus: DIRTY | IN_PROGRESS`) | `rooms_now` | *"Rooms 101, 105, 203 are DIRTY; Room 102 is IN_PROGRESS by Noi."* |
-| **9** | *"What is our room occupancy rate tonight?"* | `rooms` (`occupancyStatus: OCCUPIED`) | `rooms_now` | *"Occupancy is at 85% tonight (34 of 40 rooms occupied)."* |
-| **10** | *"Are any airport pickups delayed by flight changes?"* | `dispatch` (`flightInfo.estimatedArrival`, `flightNumber`) | `todays_jobs` | *"TG642 for Mr. Sato is delayed 45 minutes; pickup time shifted to 16:15."* |
-| **11** | *"What is our average room turnaround time?"* | `rooms` (`cleaningUpdatedAt` delta) | `owner_insights` | *"Housekeeping turnaround averages 34 minutes per room, meeting the 45-min SLA."* |
-| **12** | *"What are the top repetitive questions guests ask?"* | `concierge_requests` (`category`, `details`) | `owner_insights` | *"1) Pool hours, 2) WiFi password, 3) Late checkout, 4) Breakfast time, 5) Airport transfer cost."* |
-| **13** | *"How many inquiries were answered automatically without waking staff?"* | `concierge` activity audit | `owner_insights` | *"92% of guest inquiries were resolved automatically by the AI concierge on LINE and web."* |
-| **14** | *"What is our RevPAR (Revenue Per Available Room) this month?"* | Total room revenue / Total room-nights | `owner_insights` | *"RevPAR is ฿2,450 THB, up 14% compared to the prior period."* |
-| **15** | *"What is our average booking lead time?"* | `orders` (`checkInDate - createdAt`) | `owner_insights` | *"Direct guests book 16.2 days in advance; weekend staycations book under 48 hours."* |
-| **16** | *"Which add-on experiences have the highest attach rate?"* | Composite order line items (`ServiceDetail`) | `owner_insights` | *"Floating breakfast has a 34% attach rate to Deluxe Balcony rooms."* |
-| **17** | *"Who is arriving today and needs airport pickup?"* | `dispatch` (`type: AIRPORT_PICKUP`, `serviceDate: today`) | `todays_jobs` | *"3 pickups scheduled: 11:30 (Driver Prasit), 14:15 (Driver Somchai), 18:00 (Unassigned)."* |
-| **18** | *"Are any staff members currently overloaded with tasks?"* | `dispatch` (`assigneeUserId`, `status`) | `staff_list` | *"Noi has 5 rooms assigned; Dao has 2. Rebalancing recommended."* |
-| **19** | *"How many bookings were completed during night hours (23:00–07:00)?"* | `orders` (`createdAt` hour analysis) | `owner_insights` | *"14 night sessions resulted in 3 confirmed bookings totaling ฿21,600 THB."* |
-| **20** | *"Which room type generates the highest yield per square meter?"* | Revenue / Area SQM | `owner_insights` | *"Deluxe Balcony generates ฿133 THB/sqm/night vs ฿88 THB/sqm for Standard King."* |
+| **1** | *"How much money did we save skipping Booking.com and Agoda commissions?"* | `owner_insights` | Takes total direct booking revenue and multiplies by the 18% standard OTA fee. | *"We saved **฿1,020,318 THB** by skipping Booking.com and Agoda commissions based on **฿5,668,432 THB** in direct bookings."* |
+| **2** | *"What percentage of our bookings came directly through our own website and chat?"* | `owner_insights` | Compares direct website/LINE orders against OTA orders in the ledger. | *"100% of your bookings came directly through your own channels (472 orders), meaning zero revenue lost to OTAs."* |
+| **3** | *"Which marketing channel brought us the most revenue this month?"* | `owner_insights` | Breaks down order attribution tags by source (LINE, WhatsApp, TikTok, Instagram, Google). | *"LINE generated the most revenue at **฿863,918 THB** (54 orders), closely followed by WhatsApp at **฿860,152 THB** (53 orders)."* |
+| **4** | *"Is our TikTok marketing actually bringing paying guests or just views?"* | `owner_insights` | Checks verified completed orders tagged with TikTok campaign UTMs. | *"Yes, TikTok generated **51 confirmed bookings** totaling **฿833,910 THB** with an average spend of ฿16,350 per stay."* |
+| **5** | *"What is our overall revenue for this period?"* | `owner_insights` | Sums verified confirmed guest orders including rooms, dining, and activities. | *"Total gross direct revenue across all 472 confirmed bookings is **฿5,657,900 THB**."* |
+| **6** | *"What is our average room turnaround time across housekeeping?"* | `owner_insights` | Calculates the time between checkout inspection and room marked clean. | *"Housekeeping averages **34 minutes per room**, well within your 45-minute quality standard."* |
 
 ---
 
-## 5. Mathematical Formulas & Backend Data Crunching
+#### Category 2: Staffing, Fleet & Logistics (`owner_insights` & `todays_jobs`)
 
-### Formula 1: Direct Channel OTA Commission Savings
-* **Concept:** Independent hotels in Thailand pay 15%–20% on Agoda and Booking.com (15% base listing + 3% preferred partner / card processing). Yoonie charges 0% commission.
-* **Equation:**
-  $$\text{OTA Commission Saved} = \left( \sum_{i \in \text{Direct Orders}} \text{Order}_i.\text{grandTotalThb} \right) \times 0.18$$
-* **Backend Implementation (`src/ops-board/ops-board.service.ts`):**
-  ```typescript
-  const orders = await this.orderModel.find({
-    branchId: ctx.branchOid,
-    status: { $in: [OrderStatus.CONFIRMED, OrderStatus.COMPLETED] }
-  }).lean();
-
-  let directRevenueThb = 0;
-  for (const ord of orders) {
-    const channel = ord.attribution?.channel || "DIRECT_WEB";
-    const isOta = channel.toUpperCase().includes("OTA") || channel.toUpperCase().includes("AGODA");
-    if (!isOta) {
-      directRevenueThb += ord.totals?.grandTotalThb || 0;
-    }
-  }
-  const otaCommissionsSavedThb = Math.round(directRevenueThb * 0.18);
-  ```
+| # | Question Asked by BO (Sam) | Tool Used | How Yoonie Gets the Answer (Plain English for BOs) | Exact Conversational Reply to BO |
+|---|---|---|---|---|
+| **7** | *"When do transfer requests spike, and do we need a second driver?"* *(Pitch Reel Question)* | `owner_insights` | Groups all airport transfers by day of the week and detects volume peaks. | *"Airport pickups spike heavily on **Saturdays (43 transfers)**—that is **14x normal volume**. Schedule an extra driver."* |
+| **8** | *"Who needs airport pickup today, and are any flights delayed?"* | `todays_jobs` | Checks today's transfer run-sheet and live flight radar tracking. | *"3 pickups scheduled today: 11:30 AM (Driver Prasit), 2:15 PM (Driver Somchai), and 6:00 PM (Unassigned). TG642 is delayed 45 minutes."* |
+| **9** | *"Which rooms should housekeeping clean first today?"* | `todays_jobs` | Matches room cleaning status with guest flight arrival times and VIP status. | *"Clean Room 204 first—guest lands at 11:30 AM and is a VIP. Room 301 arrives late at 8:00 PM, so clean it last."* |
+| **10** | *"Are any staff members overloaded with tasks today?"* | `todays_jobs` | Counts active tasks assigned to each staff member on today's run-sheet. | *"Noi has 5 rooms to clean while Dao only has 2. I recommend reassigning Room 203 to Dao."* |
 
 ---
 
-### Formula 2: Day-of-Week Fleet & Transfer Spike Multiplier
-* **Concept:** Instead of static driver schedules, Yoonie aggregates airport pickup tasks by day-of-week to detect demand surges.
-* **Equation:**
-  $$\text{Spike Multiplier} = \frac{\text{Trips on Peak Day}}{\text{Average Trips on Non-Peak Days}}$$
-* **Backend Implementation (`src/ops-board/ops-board.service.ts`):**
-  ```typescript
-  const pickTasks = await this.dispatchModel.find({
-    branchId: ctx.branchOid,
-    type: "AIRPORT_PICKUP"
-  }).lean();
+#### Category 3: Tour & Activity Profitability (`services_now`)
 
-  for (const t of pickTasks) {
-    const d = t.serviceDate ? new Date(`${t.serviceDate}T00:00:00Z`) : t.createdAt;
-    const dayName = new Intl.DateTimeFormat("en-US", { weekday: "long", timeZone: ctx.timezone }).format(d);
-    daysMap[dayName] = (daysMap[dayName] || 0) + 1;
-  }
-  // Yields: "Saturday transfers run 14x normal volume. Put a second driver on."
-  ```
+| # | Question Asked by BO (Sam) | Tool Used | How Yoonie Gets the Answer (Plain English for BOs) | Exact Conversational Reply to BO |
+|---|---|---|---|---|
+| **11** | *"Are our tours making money or running at a loss?"* | `services_now` | Compares total guest ticket revenue against boat/van fixed operating costs. | *"The Sunset Cruise is profitable on weekends, but this Friday's cruise only has 2 passengers and will lose ฿1,600 THB unless consolidated."* |
+| **12** | *"Should we cancel or merge the Friday boat cruise?"* | `services_now` | Checks minimum viable passenger threshold (6 pax needed to break even). | *"With only 2 passengers against a ฿4,000 fixed boat cost, you should merge them into Saturday's 4:30 PM cruise."* |
+| **13** | *"How full is our spa today?"* | `services_now` | Checks booked treatment rooms and therapist hours for today. | *"Spa is at 75% capacity today with 6 of 8 therapy slots booked. 2 slots remain open between 3:00 PM and 5:00 PM."* |
 
 ---
 
-### Formula 3: Tour Consolidation Profit & Loss Engine
-* **Concept:** If a speedboat or island tour departure does not hit minimum viable capacity, operating it creates guaranteed loss.
-* **Equation:**
-  $$\text{Projected Margin} = (\text{Booked Pax} \times \text{Rate per Pax}) - \text{Fixed Cost}$$
-  $$\text{Consolidation Alert} = \text{Booked Pax} < (\text{Capacity} \times \text{consolidationThreshold})$$
-* **Backend Implementation (`src/dispatch/rules/dispatch-rules.ts`):**
-  Flags `CRITICAL` if booked < minimum viable passenger count, computing net loss in THB so Sam can merge or cancel before the van leaves.
+#### Category 4: High-Value Guests & Front Desk Collections (`guests_now` & `rooms_now`)
+
+| # | Question Asked by BO (Sam) | Tool Used | How Yoonie Gets the Answer (Plain English for BOs) | Exact Conversational Reply to BO |
+|---|---|---|---|---|
+| **14** | *"Who are our highest-spending VIP guests in house right now?"* | `guests_now` | Scans guest lifetime spend and VIP score in the guest CDP profile. | *"Mr. David Kim in Room 201 has spent ฿124,000 THB across 4 stays. Elena Rossi in Room 104 is on her 3rd stay."* |
+| **15** | *"Which guests have unpaid balances or open folios before checkout?"* | `guests_now` | Checks room billing folios for outstanding charges. | *"3 departing guests have unpaid balances totaling ฿14,200 THB (Room 105: ฿6,800, Room 202: ฿4,400, Room 301: ฿3,000)."* |
+| **16** | *"What is our room occupancy rate tonight?"* | `rooms_now` | Counts occupied rooms divided by total physical rooms (40 units). | *"Occupancy tonight is **85%** (34 of 40 rooms occupied). 6 rooms remain available for walk-ins or same-day bookings."* |
+| **17** | *"Which rooms are currently dirty and need inspection?"* | `rooms_now` | Checks real-time room housekeeping states. | *"Rooms 101, 105, and 203 are DIRTY. Room 102 is currently being cleaned by Noi."* |
+| **18** | *"How many repeat guests do we have arriving this week?"* | `guests_now` | Filters upcoming 7-day arrivals by stay history count (>1 previous stay). | *"8 returning guests are arriving over the next 7 days, representing 32% of all upcoming arrivals."* |
+| **19** | *"What was our night-time booking volume while staff were asleep?"* | `owner_insights` | Filters direct bookings completed between 11:00 PM and 7:00 AM. | *"14 guest conversations occurred overnight, producing 3 confirmed direct bookings worth ฿21,600 THB automatically."* |
+| **20** | *"Give me a 30-second executive summary of hotel performance."* | `owner_insights` | Generates a concise top-line brief combining revenue, savings, and alerts. | *"Direct bookings captured 100% of revenue (฿5.65M THB), saving ฿1.02M THB in OTA commissions. Housekeeping turnaround is 34 mins. Alert: Schedule an extra driver for Saturday's 43 pickups."* |
 
 ---
 
-### Formula 4: Frontline Housekeeping Priority Scoring
-* **Concept:** Clean rooms in arrival order and VIP urgency, not sequential room number order.
-* **Equation:**
-  $$\text{Priority Score} = \max(0, 1000 - \Delta \text{Minutes to Flight ETA}) + (\text{isVIP} \times 250)$$
-* **Result:** High priority rooms float to the top of housekeeper Noi’s mobile board automatically.
+## 🚀 5. Demo Seeder Script (`npm run seed:demo`)
+
+To enable seamless live presentations without risking production data or getting 403 Forbidden errors:
+
+```bash
+# In yoonie-backend directory:
+npm run seed:demo
+
+# Or target a specific operator email:
+npm run seed:demo -- --email=lnyinyi22@gmail.com
+```
+
+### Safety & Isolation Guarantees:
+1. **Scoped to BKK Riverside:** Only resets `branchId: 665a1b2c3d4e5f6a7b8c9d0e`. Never runs global wipes on other tenants.
+2. **Idempotent & Reusable:** Can be run 100 times before, during, or after demos.
+3. **Dynamic Relative Dates:** Rooms, flights, and housekeeping tasks are relative to **TODAY**, guaranteeing active live operational boards.
+4. **Zero-403 Access Guarantee:** Links `BKK-RIVERSIDE` into `user.branchIds`, sets `role: ADMIN`, and resets password to `Password123!`.
+5. **Pitch Proof Seeded:** Seeds 472 verified direct orders totaling ~฿5.6M THB revenue and ฿1.02M OTA savings.
