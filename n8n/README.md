@@ -33,11 +33,17 @@ Two workflows, two entry points. Guests and staff never share an assistant, a co
 | Tool | Endpoint |
 |---|---|
 | `todays_jobs` | `GET /dispatch?branchId&serviceDate` |
+| `owner_insights` | `GET /ops-board/insights?branchId` (OTA commission savings, marketing channel attribution, transfer spikes) |
+| `rooms_now` | `GET /rooms/live-occupancy?branchId&date` |
+| `guests_now` | `GET /ops-board/guests?branchId&date` |
+| `services_now` | `GET /ops-board/services?branchId&date` |
 | `move_room` | `POST /staff/rooms/{roomId}/transition` |
 | `pickup_step` | `POST /staff/pickups/{taskId}/step` |
 | `answer_pickup_problem` | `POST /dispatch/{taskId}/pickup-issue` |
 | `tour_decision` | `POST /dispatch/{taskId}/decision` |
 | `staff_list` / `assign_task` | `GET /staff/roster`, `PATCH /dispatch/{taskId}/assign` |
+
+See [`docs/N8N_STAFF_INTELLIGENCE.md`](../docs/N8N_STAFF_INTELLIGENCE.md) for full formulas, backend crunching pipelines, and 20 operator pitch answers.
 
 ## Call the staff assistant
 
