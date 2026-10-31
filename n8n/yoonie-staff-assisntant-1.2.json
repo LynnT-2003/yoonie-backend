@@ -1,0 +1,1146 @@
+{
+  "name": "Yoonie · Staff assistant Nov1.1",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "yoonie-staff-assistant-nov1.1",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "30a74670-29f5-4d8a-a309-46e99485d6b6",
+      "name": "Staff message",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        144,
+        -80
+      ],
+      "webhookId": "yoonie-staff-assistant"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "dc793a5d-36f5-4646-8bab-67f5c9e99a90",
+              "name": "api",
+              "value": "https://yoonie-backend.vercel.app/api",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "3de1531f-4352-44a8-bdc3-30869f94b66d",
+      "name": "Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        352,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.api }}/users/me",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ $('Staff message').item.json.headers.authorization || '' }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "81c5ce91-0c40-41fc-9aac-986892529662",
+      "name": "Who is asking",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        544,
+        -80
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// The gate: only a signed-in Yoonie staff member gets this far, and every tool runs as them\nconst me = $json.data;\nconst req = $('Staff message').item.json;\nif (!me || me.role === 'GUEST') {\n  return [{ json: { allowed: false } }];\n}\nreturn [{ json: {\n  allowed: true,\n  userId: me._id,\n  name: me.displayName,\n  role: me.role,\n  jobTitle: me.jobTitle || '',\n  branchId: (me.branchIds || [])[0],\n  today: new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' }),\n  auth: req.headers.authorization,\n  sessionId: req.body.sessionId || me._id,\n  chatInput: String(req.body.message || req.body.chatInput || ''),\n  page: (req.body.context && req.body.context.page) || 'other',\n  roomNumber: (req.body.context && req.body.context.roomNumber) || '',\n  pageDate: (req.body.context && req.body.context.date) || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' }),\n  pageBrief: (() => {\n    const c = req.body.context || {};\n    const room = c.roomNumber ? (\" They have room \" + c.roomNumber + \" open: assume questions are about room \" + c.roomNumber + \" unless they say otherwise, and use rooms_now to see it.\") : \"\";\n    const briefs = {\n      rooms: \"They are on the ROOMS page (board, floor map, timeline). Go deep on rooms: use rooms_now for every room cleaning state, who is in it tonight, who arrives and their ready-by time, departures, the room job and owner, and each stay bill. Compare against ready-by times; call out rooms that will be late.\" + room,\n      guests: \"They are on the GUESTS page. Go deep on guests: use guests_now for who is in house, arriving, departing and due in the next 7 days, their bookings, services and balances.\",\n      services: \"They are on the SERVICES page. Go deep on transfers, tours and spa: use services_now for each slot capacity, bookings, revenue against cost and who is booked.\",\n      dispatch: \"They are on the DISPATCH page. Go deep on today jobs: use todays_jobs for rooms, pickups and tours with owners, steps and deadlines.\",\n      insights: \"They want executive owner insights: use owner_insights for sales, direct vs OTA commission savings, marketing channel attribution, transfer spikes and driver staffing.\",\n      property: \"They are on the PROPERTY page (rooms and services catalogue). Use rooms_now and services_now for facts.\",\n    };\n    return briefs[c.page] || \"Answer about whatever they ask; todays_jobs is the best place to start.\";\n  })(),\n} }];"
+      },
+      "id": "9cdd02ad-ddef-4d3e-9df4-dce805a4bf95",
+      "name": "Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        768,
+        -176
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "abe5150f-3101-4aff-b940-9ead40a68978",
+              "leftValue": "={{ $json.allowed }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "1b9bb0b1-eec4-4b54-a3a0-f585c9667f0d",
+      "name": "Staff?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        976,
+        -176
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.chatInput || $('Context').item.json.chatInput }}",
+        "options": {
+          "systemMessage": "=You are Yoonie Ops, the assistant for hotel staff. You are talking to {{ $('Context').item.json.name }} ({{ $('Context').item.json.role }}{{ $('Context').item.json.jobTitle ? ', ' + $('Context').item.json.jobTitle : '' }}). Today is {{ $('Context').item.json.today }} (Bangkok).\n\nWHERE THEY ARE: {{ $('Context').item.json.pageBrief }} The page shows {{ $('Context').item.json.pageDate }}.\n\nEverything you do runs as this person, through the same rules as the Yoonie app. If a tool says they aren't allowed, tell them plainly; don't try another way.\n\nTools:\n- rooms_now: every room right now: cleaning state, occupancy, current / next / departing stay, arrival ready-by, the room's job and owner, bills.\n- guests_now: guests in house, arriving, departing and in the next 7 days, with services and balances.\n- services_now: each transfer / tour / spa slot: capacity, booked, revenue vs cost, who is booked.\n- todays_jobs: every job today (rooms, pickups, tours) with owner, status, deadline, ids. Use it first to find a room's roomId or a task's id.\n- move_room: change a room's cleaning state with its roomId. toStatus is IN_PROGRESS (start), CLEAN (done), INSPECTED (passed), or DIRTY (needs cleaning / failed inspection, reason required).\n- pickup_step: record a pickup step a driver phoned in: CONFIRMED, EN_ROUTE, AT_AIRPORT, GUEST_ON_BOARD, DROPPED_OFF.\n- answer_pickup_problem: answer a driver's problem: KEEP_WAITING (with instructions) or NO_SHOW.\n- tour_decision: KEEP, MERGE or CANCEL a low-fill tour departure (cancel needs a manager), with a note.\n- staff_list and assign_task: give a job to someone, or back to the open pool.\n- owner_insights: owner executive intelligence on sales, direct bookings vs OTA revenue, money saved skipping Agoda/Booking.com commissions, transfer volume spikes by day of the week (e.g. Thursday extra driver), room turnaround times, and marketing channels.\n\nSAFETY, most important: only change something (move_room, pickup_step, answer_pickup_problem, tour_decision, assign_task) when the message clearly asks for that specific change AND names what it applies to (e.g. \"room 202 passed inspection\", \"give room 205 to Dao\"). Never act on vague, one-word, partial or unclear messages (\"dis\", \"rooms?\", \"late\") — answer with information, or ask what they want. Never change more than one room or job from a single message unless they list them; if they ask for a bulk change, list what you'd change and ask \"Shall I go ahead?\" first. Questions are never instructions: \"which rooms are dirty?\" means look, not change.\n\nRules: confirm what you changed and who was notified (from the tool's \"notified\" list). Before CANCEL or NO_SHOW, repeat what will happen and ask \"Shall I go ahead?\"; only act after a clear yes. Keep answers short; use room numbers and times, not ids.\n\nNever offer, propose, or pretend to take actions that are not in your tools (such as sending payment reminders, charging cards, or messaging guests). If asked to collect money or remind a guest, state plainly that payment collection must be handled directly at the front desk or via WhatsApp guest chat. Never blame system errors for missing capabilities."
+        }
+      },
+      "id": "5746c59f-4026-4309-b5fb-130aba76f188",
+      "name": "Staff assistant",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        1850,
+        -272
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { reply: $json.output } }}",
+        "options": {}
+      },
+      "id": "abcf5577-8284-4c8e-b7a3-dce511561cbb",
+      "name": "Reply Text",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        2250,
+        -360
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { error: 'Please sign in to Yoonie to use the staff assistant.' } }}",
+        "options": {
+          "responseCode": 401
+        }
+      },
+      "id": "759d1d17-ccff-412c-8670-c40b6a6a3039",
+      "name": "Not signed in",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1216,
+        48
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-4o-mini"
+        },
+        "options": {
+          "temperature": 0.3
+        }
+      },
+      "id": "ad6f6740-6ba9-4fc3-884a-c39e40e5d0f1",
+      "name": "OpenAI (staff)",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        896,
+        192
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": null,
+          "name": "",
+          "__aiGatewayManaged": true
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ 'staff:' + $('Context').item.json.userId + ':' + $('Context').item.json.sessionId }}",
+        "contextWindowLength": 12
+      },
+      "id": "bf33992b-07a4-4954-ab3f-15d35c10fac3",
+      "name": "Staff memory",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        736,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "toolDescription": "Every job today with ids: rooms (housekeeping.roomId, roomNumber, cleaningStatus, ready-by), pickups (flight, stage, driver), tour checks; owner and status.",
+        "url": "={{ $('Config').item.json.api }}/dispatch",
+        "sendQuery": true,
+        "parametersQuery": {
+          "values": [
+            {
+              "name": "branchId",
+              "valueProvider": "fieldValue",
+              "value": "={{ $('Context').item.json.branchId }}"
+            },
+            {
+              "name": "serviceDate",
+              "valueProvider": "fieldValue",
+              "value": "={{ $('Context').item.json.today }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "parametersHeaders": {
+          "values": [
+            {
+              "name": "Authorization",
+              "valueProvider": "fieldValue",
+              "value": "={{ $('Context').item.json.auth }}"
+            }
+          ]
+        }
+      },
+      "id": "ed9e4c00-f543-4112-be3d-188c9527c984",
+      "name": "todays_jobs",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        1056,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "toolDescription": "Every room right now: cleaning state, who is in it tonight, arrivals with ready-by times, departures, the room's job and owner, and bills.",
+        "url": "={{ $('Config').item.json.api }}/rooms/live-occupancy",
+        "sendQuery": true,
+        "parametersQuery": {
+          "values": [
+            {
+              "name": "branchId",
+              "valueProvider": "fieldValue",
+              "value": "={{ $('Context').item.json.branchId }}"
+            },
+            {
+              "name": "date",
+              "valueProvider": "fieldValue",
+              "value": "={{ $('Context').item.json.pageDate }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "parametersHeaders": {
+          "values": [
+            {
+              "name": "Authorization",
+              "valueProvider": "fieldValue",
+              "value": "={{ $('Context').item.json.auth }}"
+            }
+          ]
+        }
+      },
+      "id": "22cdf2e7-3578-4bf3-a353-43d72e838f1f",
+      "name": "rooms_now",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        1056,
+        352
+      ]
+    },
+    {
+      "parameters": {
+        "toolDescription": "Guests in house, arriving, departing and due in the next 7 days, with their services and balances.",
+        "url": "={{ $('Config').item.json.api }}/ops-board/guests",
+        "sendQuery": true,
+        "parametersQuery": {
+          "values": [
+            {
+              "name": "branchId",
+              "valueProvider": "fieldValue",
+              "value": "={{ $('Context').item.json.branchId }}"
+            },
+            {
+              "name": "date",
+              "valueProvider": "fieldValue",
+              "value": "={{ $('Context').item.json.pageDate }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "parametersHeaders": {
+          "values": [
+            {
+              "name": "Authorization",
+              "valueProvider": "fieldValue",
+              "value": "={{ $('Context').item.json.auth }}"
+            }
+          ]
+        }
+      },
+      "id": "7f19d438-6df2-4ac4-b1b2-8b16b6c99560",
+      "name": "guests_now",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        1216,
+        352
+      ]
+    },
+    {
+      "parameters": {
+        "toolDescription": "Each transfer, tour and spa slot for the day: capacity, booked, revenue against fixed cost, and who is booked.",
+        "url": "={{ $('Config').item.json.api }}/ops-board/services",
+        "sendQuery": true,
+        "parametersQuery": {
+          "values": [
+            {
+              "name": "branchId",
+              "valueProvider": "fieldValue",
+              "value": "={{ $('Context').item.json.branchId }}"
+            },
+            {
+              "name": "date",
+              "valueProvider": "fieldValue",
+              "value": "={{ $('Context').item.json.pageDate }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "parametersHeaders": {
+          "values": [
+            {
+              "name": "Authorization",
+              "valueProvider": "fieldValue",
+              "value": "={{ $('Context').item.json.auth }}"
+            }
+          ]
+        }
+      },
+      "id": "1d35f061-f005-45fb-b115-ee99c6e3b69c",
+      "name": "services_now",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        1376,
+        352
+      ]
+    },
+    {
+      "parameters": {
+        "toolDescription": "Change a room's cleaning state. Needs roomId (housekeeping.roomId from todays_jobs) and toStatus; reason is required for DIRTY.",
+        "method": "POST",
+        "url": "={{ $('Config').item.json.api }}/staff/rooms/{roomId}/transition",
+        "sendHeaders": true,
+        "parametersHeaders": {
+          "values": [
+            {
+              "name": "Authorization",
+              "valueProvider": "fieldValue",
+              "value": "={{ $('Context').item.json.auth }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "parametersBody": {
+          "values": [
+            {
+              "name": "toStatus"
+            },
+            {
+              "name": "reason",
+              "valueProvider": "modelOptional"
+            }
+          ]
+        },
+        "placeholderDefinitions": {
+          "values": [
+            {
+              "name": "roomId",
+              "description": "housekeeping.roomId from todays_jobs",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "id": "4c594014-c281-433e-b8a0-37aabe572f19",
+      "name": "move_room",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        1216,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "toolDescription": "Record a pickup step for a driver who phoned in. Needs the pickup task id and stage.",
+        "method": "POST",
+        "url": "={{ $('Config').item.json.api }}/staff/pickups/{taskId}/step",
+        "sendHeaders": true,
+        "parametersHeaders": {
+          "values": [
+            {
+              "name": "Authorization",
+              "valueProvider": "fieldValue",
+              "value": "={{ $('Context').item.json.auth }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "parametersBody": {
+          "values": [
+            {
+              "name": "stage"
+            },
+            {
+              "name": "note",
+              "valueProvider": "modelOptional"
+            }
+          ]
+        },
+        "placeholderDefinitions": {
+          "values": [
+            {
+              "name": "taskId",
+              "description": "The task's _id from todays_jobs",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "id": "1da81856-ec93-4b58-b9cc-144045ffb91b",
+      "name": "pickup_step",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        1376,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "toolDescription": "Answer a driver's reported problem on a pickup: KEEP_WAITING with instructions, or NO_SHOW.",
+        "method": "POST",
+        "url": "={{ $('Config').item.json.api }}/dispatch/{taskId}/pickup-issue",
+        "sendHeaders": true,
+        "parametersHeaders": {
+          "values": [
+            {
+              "name": "Authorization",
+              "valueProvider": "fieldValue",
+              "value": "={{ $('Context').item.json.auth }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "parametersBody": {
+          "values": [
+            {
+              "name": "resolution"
+            },
+            {
+              "name": "note",
+              "valueProvider": "modelOptional"
+            }
+          ]
+        },
+        "placeholderDefinitions": {
+          "values": [
+            {
+              "name": "taskId",
+              "description": "The task's _id from todays_jobs",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "id": "5f3e4ed1-10ce-40e5-977e-9e844f9b2b30",
+      "name": "answer_pickup_problem",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        1536,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "toolDescription": "Decide a low-fill tour departure: KEEP, MERGE or CANCEL (cancel needs a manager), with a note.",
+        "method": "POST",
+        "url": "={{ $('Config').item.json.api }}/dispatch/{taskId}/decision",
+        "sendHeaders": true,
+        "parametersHeaders": {
+          "values": [
+            {
+              "name": "Authorization",
+              "valueProvider": "fieldValue",
+              "value": "={{ $('Context').item.json.auth }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "parametersBody": {
+          "values": [
+            {
+              "name": "decision"
+            },
+            {
+              "name": "note",
+              "valueProvider": "modelOptional"
+            }
+          ]
+        },
+        "placeholderDefinitions": {
+          "values": [
+            {
+              "name": "taskId",
+              "description": "The task's _id from todays_jobs",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "id": "b8731488-d6e9-4639-8c74-51b1f1028dc6",
+      "name": "tour_decision",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        1696,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "toolDescription": "Staff on this branch with ids, names and job titles, for assigning jobs.",
+        "url": "={{ $('Config').item.json.api }}/staff/roster",
+        "sendQuery": true,
+        "parametersQuery": {
+          "values": [
+            {
+              "name": "branchId",
+              "valueProvider": "fieldValue",
+              "value": "={{ $('Context').item.json.branchId }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "parametersHeaders": {
+          "values": [
+            {
+              "name": "Authorization",
+              "valueProvider": "fieldValue",
+              "value": "={{ $('Context').item.json.auth }}"
+            }
+          ]
+        }
+      },
+      "id": "e9f2cb72-13d3-44c2-bfee-f79b67ad57d8",
+      "name": "staff_list",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        1856,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "toolDescription": "Give a job to a staff member (assigneeUserId from staff_list), or send 'null' to put it back in the open pool.",
+        "method": "PATCH",
+        "url": "={{ $('Config').item.json.api }}/dispatch/{taskId}/assign",
+        "sendHeaders": true,
+        "parametersHeaders": {
+          "values": [
+            {
+              "name": "Authorization",
+              "valueProvider": "fieldValue",
+              "value": "={{ $('Context').item.json.auth }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "parametersBody": {
+          "values": [
+            {
+              "name": "assigneeUserId"
+            }
+          ]
+        },
+        "placeholderDefinitions": {
+          "values": [
+            {
+              "name": "taskId",
+              "description": "The task's _id from todays_jobs",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "id": "02d604a3-d4c3-4679-8211-2773809280c5",
+      "name": "assign_task",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        2016,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "toolDescription": "Owner financial and operational insights: direct vs OTA revenue, money saved skipping Booking.com/Agoda commission (18%), marketing channel breakdown (Instagram, Google, LINE, TikTok), transfer demand spikes by day of week (e.g. Thursday driver staffing), and turnaround KPIs.",
+        "url": "={{ $('Config').item.json.api }}/ops-board/insights",
+        "sendQuery": true,
+        "parametersQuery": {
+          "values": [
+            {
+              "name": "branchId",
+              "valueProvider": "fieldValue",
+              "value": "={{ $('Context').item.json.branchId }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "parametersHeaders": {
+          "values": [
+            {
+              "name": "Authorization",
+              "valueProvider": "fieldValue",
+              "value": "={{ $('Context').item.json.auth }}"
+            }
+          ]
+        }
+      },
+      "id": "bf17db69-8c60-4c11-a669-1907a8bae77f",
+      "name": "owner_insights",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        2176,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cond-has-audio",
+              "leftValue": "={{ Boolean($('Context').item.json.audio) }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "c1a2b3c4-audio-if-1111-222233334444",
+      "name": "Has Audio?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1050,
+        -272
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const audioBase64 = $('Context').item.json.audio;\nconst cleanBase64 = String(audioBase64).replace(/^data:audio\\/\\w+;base64,/, \"\");\nreturn [{\n  binary: {\n    data: {\n      data: cleanBase64,\n      mimeType: \"audio/webm\",\n      fileName: \"audio.webm\"\n    }\n  },\n  json: { ...$('Context').item.json }\n}];"
+      },
+      "id": "b1b2b3b4-b64-to-audio-222233334444",
+      "name": "Base64 to Audio",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1250,
+        -420
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "audio",
+        "operation": "transcribe",
+        "options": {}
+      },
+      "id": "d1d2d3d4-transcribe-333344445555",
+      "name": "Transcribe (STT)",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1,
+      "position": [
+        1450,
+        -420
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": null,
+          "name": "",
+          "__aiGatewayManaged": true
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "assign-chat-input",
+              "name": "chatInput",
+              "value": "={{ $json.text }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "e1e2e3e4-set-trans-444455556666",
+      "name": "Set Transcribed Text",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1650,
+        -420
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cond-voice-gate",
+              "leftValue": "={{ $('Context').item.json.voice }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "f1f2f3f4-voice-gate-555566667777",
+      "name": "Voice?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2050,
+        -272
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "audio",
+        "operation": "generate",
+        "prompt": "={{ $('Staff assistant').item.json.output }}",
+        "voice": "alloy",
+        "options": {
+          "responseFormat": "mp3"
+        }
+      },
+      "id": "a1a2a3a4-tts-node-666677778888",
+      "name": "Generate speech (TTS)",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1,
+      "position": [
+        2250,
+        -160
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": null,
+          "name": "",
+          "__aiGatewayManaged": true
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { reply: $('Staff assistant').item.json.output, audio: $binary.data.data } }}",
+        "options": {}
+      },
+      "id": "8a8b8c8d-reply-voice-777788889999",
+      "name": "Reply Voice",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        2450,
+        -160
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Staff message": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config": {
+      "main": [
+        [
+          {
+            "node": "Who is asking",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Who is asking": {
+      "main": [
+        [
+          {
+            "node": "Context",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Not signed in",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Context": {
+      "main": [
+        [
+          {
+            "node": "Staff?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Staff?": {
+      "main": [
+        [
+          {
+            "node": "Has Audio?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Not signed in",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Staff assistant": {
+      "main": [
+        [
+          {
+            "node": "Voice?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI (staff)": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Staff assistant",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Staff memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "Staff assistant",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "todays_jobs": {
+      "ai_tool": [
+        [
+          {
+            "node": "Staff assistant",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "rooms_now": {
+      "ai_tool": [
+        [
+          {
+            "node": "Staff assistant",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "guests_now": {
+      "ai_tool": [
+        [
+          {
+            "node": "Staff assistant",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "services_now": {
+      "ai_tool": [
+        [
+          {
+            "node": "Staff assistant",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "move_room": {
+      "ai_tool": [
+        [
+          {
+            "node": "Staff assistant",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "pickup_step": {
+      "ai_tool": [
+        [
+          {
+            "node": "Staff assistant",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "answer_pickup_problem": {
+      "ai_tool": [
+        [
+          {
+            "node": "Staff assistant",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "tour_decision": {
+      "ai_tool": [
+        [
+          {
+            "node": "Staff assistant",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "staff_list": {
+      "ai_tool": [
+        [
+          {
+            "node": "Staff assistant",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "assign_task": {
+      "ai_tool": [
+        [
+          {
+            "node": "Staff assistant",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "owner_insights": {
+      "ai_tool": [
+        [
+          {
+            "node": "Staff assistant",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Audio?": {
+      "main": [
+        [
+          {
+            "node": "Base64 to Audio",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Staff assistant",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Base64 to Audio": {
+      "main": [
+        [
+          {
+            "node": "Transcribe (STT)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transcribe (STT)": {
+      "main": [
+        [
+          {
+            "node": "Set Transcribed Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Transcribed Text": {
+      "main": [
+        [
+          {
+            "node": "Staff assistant",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Voice?": {
+      "main": [
+        [
+          {
+            "node": "Generate speech (TTS)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Reply Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate speech (TTS)": {
+      "main": [
+        [
+          {
+            "node": "Reply Voice",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "1fb7cbbe-3fe0-40c5-aa37-5f9c3e95d888",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "fd743562f6be95627cd7e39f1b8b2ff50ed56795df8eed955fd3e680ba707746"
+  },
+  "nodeGroups": [],
+  "id": "76XdQDPItr4BPtWh",
+  "tags": []
+}
